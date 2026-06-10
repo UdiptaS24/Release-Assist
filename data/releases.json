@@ -1,0 +1,22 @@
+[
+    {
+        "app_name": "Payments Manager",
+        "version": "1.0.0",
+        "release_type": "major",
+        "contact_email": "user1@example.com",
+        "repository_url": "http://example1.com",
+        "id": "11474865",
+        "status": "PENDING",
+        "created_at": "2026-06-09T09:39:52.154372Z"
+    },
+    {
+        "app_name": "Paw Safe",
+        "version": "1.1.0",
+        "release_type": "hotfix",
+        "contact_email": "user2@example.com",
+        "repository_url": "http://pawsaferepo.com",
+        "id": "07bbf4ab",
+        "status": "PENDING",
+        "created_at": "2026-06-09T09:40:47.988219Z"
+    }
+]
