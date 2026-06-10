@@ -1,12 +1,14 @@
+import os
 import typer
 import httpx
 from rich.console import Console
 from rich.table import Table
-
+from dotenv import load_dotenv
+load_dotenv()
 app = typer.Typer(help="Release Assist MVP CLI", add_completion=False)
 console = Console()
 
-API_URL = "http://127.0.0.1:8000/releases"
+API_URL = os.getenv("RELEASE_API_URL")
 
 @app.command()
 def submit(
