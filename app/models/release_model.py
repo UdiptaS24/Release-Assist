@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, HttpUrl
 from datetime import datetime, timezone
 from typing import Literal
 import uuid
@@ -8,7 +8,8 @@ class ReleaseRequest(BaseModel):
     version: str = Field(pattern=r'^\d+\.\d+\.\d+$', description="Version number in the format X.Y.Z")
     release_type: Literal["major", "minor", "patch", "hotfix"] = Field(description="Type of release: major, minor or patch")
     contact_email: EmailStr = Field(description="AppDev team contact email")
-    repository_url: str = Field(description="URL of the application's code repository")
+    repository_url: HttpUrl = Field(description="URL of the application's code repository")
+    rollback_plan: str = Field(min_length=15, description="Brief description of the rollback plan to revert this deployment if it fails")
 
 class ReleaseRecord(ReleaseRequest):
     id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8], description="Unique identifier of a release record")

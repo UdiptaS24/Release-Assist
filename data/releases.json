@@ -1,32 +1,35 @@
 [
     {
-        "app_name": "payment-gateway",
-        "version": "2.1.0",
-        "release_type": "minor",
-        "contact_email": "payments-team@company.com",
-        "repository_url": "https://github.com/company/payment-gateway",
-        "id": "a9aeef9e",
-        "status": "PENDING",
-        "created_at": "2026-06-10T09:03:27.747411Z"
-    },
-    {
-        "app_name": "release-assist",
-        "version": "1.0.0",
-        "release_type": "major",
-        "contact_email": "releaseassistteam@company.com",
-        "repository_url": "https://github.com/company/release-assist",
-        "id": "8f2b5dce",
-        "status": "PENDING",
-        "created_at": "2026-06-10T09:07:24.911550Z"
-    },
-    {
-        "app_name": "task-manager",
+        "app_name": "auth-service",
         "version": "1.2.0",
-        "release_type": "patch",
-        "contact_email": "taskmanagement@company.com",
-        "repository_url": "https://github.com/company/task-manager",
-        "id": "3ef4f6e8",
+        "release_type": "minor",
+        "contact_email": "iam-team@company.com",
+        "repository_url": "https://github.com/company/auth",
+        "rollback_plan": "Revert docker image tag to v1.1.0 and run db-rollback script to undo schema patch.",
+        "id": "a0f6c335",
         "status": "PENDING",
-        "created_at": "2026-06-10T10:39:12.987611Z"
+        "created_at": "2026-06-11T07:44:58.774375Z"
+    },
+    {
+        "app_name": "customer-dashboard",
+        "version": "3.0.0",
+        "release_type": "major",
+        "contact_email": "frontend-devs@company.com",
+        "repository_url": "https://github.com/company/customer-dashboard",
+        "rollback_plan": "Redeploy the stable v2.9.5 bundle from S3 and flush the CloudFront CDN cache.",
+        "id": "124b1728",
+        "status": "PENDING",
+        "created_at": "2026-06-11T07:52:26.771647Z"
+    },
+    {
+        "app_name": "notification-worker",
+        "version": "2.4.1",
+        "release_type": "patch",
+        "contact_email": "ops@company.com",
+        "repository_url": "https://github.com/company/notification-worker",
+        "rollback_plan": "Scale down the new worker pods and scale up the v2.4.0 replica set in Kubernetes.[D",
+        "id": "bb04b24d",
+        "status": "PENDING",
+        "created_at": "2026-06-11T07:53:14.834579Z"
     }
 ]

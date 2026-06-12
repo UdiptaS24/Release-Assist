@@ -28,6 +28,7 @@ def _save_all_releases(releases: list[dict]) -> None:
 def store_release_record(new_release_request: ReleaseRequest) -> dict:    
     data = _load_all_releases()
     new_release_record = ReleaseRecord(**new_release_request.model_dump())
+    new_release_record.repository_url = str(new_release_record.repository_url)
     record_dict = new_release_record.model_dump(mode="json")
     data.append(record_dict)
     _save_all_releases(data)

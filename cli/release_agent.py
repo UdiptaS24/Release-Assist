@@ -3,8 +3,11 @@ import typer
 import httpx
 from rich.console import Console
 from rich.table import Table
+from rich.markdown import Markdown
 from dotenv import load_dotenv
+
 load_dotenv()
+
 app = typer.Typer(help="Release Assist MVP CLI", add_completion=False)
 console = Console()
 
@@ -16,7 +19,8 @@ def submit(
     version: str = typer.Option(..., "--version", help="Semantic versioning (e.g., 1.0.0)"),
     release_type: str = typer.Option(..., "--release-type", help="Type of release (major, minor, patch, hotfix)"),
     contact_email: str = typer.Option(..., "--email", help="Contact email of the AppDev team"),
-    repository_url: str = typer.Option(..., "--repo-url", help="GitHub repository URL")
+    repository_url: str = typer.Option(..., "--repo-url", help="GitHub repository URL"),
+    rollback_plan: str = typer.Option(..., "--rollback-plan", help="Brief description of the rollback plan to revert this deployment if it fails")
 ):
     """Submit a new release request to the Release Assist MVP."""
     payload = {
@@ -24,19 +28,20 @@ def submit(
         "version": version,
         "release_type": release_type,
         "contact_email": contact_email,
-        "repository_url": repository_url
+        "repository_url": repository_url,
+        "rollback_plan": rollback_plan
     }
     console.print(f"[yellow]Submitting release request for [bold]{app_name}[/bold] version [bold]{version}[/bold]...[/yellow]")
     try:
         with httpx.Client() as client:
             response = client.post(API_URL, json=payload)
         if response.status_code == 201:
-            data = response.json()["data"]
+            data_summary = response.json()["summary"]
             console.print(f"[bold green]Release request submitted successfully![/bold green]")
-            console.print(data)
+            console.print(Markdown(data_summary))
         else:
             detail = response.json().get("detail", "Unknown error")
-            console.print(f"[bold red]Error {response.status_code}: {detail}[/bold red]")
+            console.print(f"[bold red]Error {response.status_code}:[/bold red] [red]{detail}[/red]")
             raise typer.Exit(code=1)
     except httpx.HTTPError as e:
         console.print(f"[bold red]Failed to submit release request: {e}[/bold red]")
@@ -73,10 +78,28 @@ def list_releases():
                 console.print("[bold yellow]No release requests found.[/bold yellow]")
         else:
             detail = response.json().get("detail", "Unknown error")
-            console.print(f"[bold red]Error {response.status_code}: {detail}[/bold red]")
+            console.print(f"[bold red]Error {response.status_code}:[/bold red] [red]{detail}[/red]")
             raise typer.Exit(code=1)
     except httpx.HTTPError as e:
         console.print(f"[bold red]Failed to fetch release requests: {e}[/bold red]")
+        raise typer.Exit(code=1)
+    
+@app.command(name="view")
+def view_release(release_id: str = typer.Argument(..., help="ID of the release request to view")):
+    """View details of a specific release request by ID."""
+    console.print(f"[yellow]Fetching details for release ID: [bold]{release_id}[/bold]...[/yellow]")
+    try:
+        with httpx.Client() as client:
+            response = client.get(f"{API_URL}/{release_id}")
+        if response.status_code == 200:
+            data_summary = response.json()["summary"]
+            console.print(Markdown(data_summary))
+        else:
+            detail = response.json().get("detail", "Unknown error")
+            console.print(f"[bold red]Error {response.status_code}:[/bold red] [red]{detail}[/red]")
+            raise typer.Exit(code=1)
+    except httpx.HTTPError as e:
+        console.print(f"[bold red]Failed to fetch release details: {e}[/bold red]")
         raise typer.Exit(code=1)
     
 if __name__ == "__main__":
