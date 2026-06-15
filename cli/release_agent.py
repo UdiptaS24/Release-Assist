@@ -1,4 +1,5 @@
 import os
+import json
 import typer
 import httpx
 from rich.console import Console
@@ -33,16 +34,25 @@ def submit(
     }
     console.print(f"[yellow]Submitting release request for [bold]{app_name}[/bold] version [bold]{version}[/bold]...[/yellow]")
     try:
-        with httpx.Client() as client:
-            response = client.post(API_URL, json=payload)
+        timeout = httpx.Timeout(connect=10.0, read=600.0, write=600.0, pool=600.0
+        )
+        with console.status("[bold cyan]Cloning and analyzing the repository...[/bold cyan]", spinner="dots"):
+            with httpx.Client(timeout=timeout) as client:
+                response = client.post(API_URL, json=payload, timeout=timeout)
         if response.status_code == 201:
             data_summary = response.json()["summary"]
+            quality_check_report = response.json()["data"]["validation_report"]["quality_check"]
             console.print(f"[bold green]Release request submitted successfully![/bold green]")
             console.print(Markdown(data_summary))
+            console.print(Markdown("# Quality Check Report"))
+            console.print(json.dumps(quality_check_report, indent=2))
         else:
             detail = response.json().get("detail", "Unknown error")
             console.print(f"[bold red]Error {response.status_code}:[/bold red] [red]{detail}[/red]")
             raise typer.Exit(code=1)
+    except httpx.TimeoutException as e:
+        console.print(f"[bold red]Request timed out while submitting the release request: {e}[/bold red]")
+        raise typer.Exit(code=1)
     except httpx.HTTPError as e:
         console.print(f"[bold red]Failed to submit release request: {e}[/bold red]")
         raise typer.Exit(code=1)
@@ -93,7 +103,10 @@ def view_release(release_id: str = typer.Argument(..., help="ID of the release r
             response = client.get(f"{API_URL}/{release_id}")
         if response.status_code == 200:
             data_summary = response.json()["summary"]
+            quality_check_report = response.json()["data"]["validation_report"]["quality_check"]
             console.print(Markdown(data_summary))
+            console.print(Markdown("# Quality Check Report"))
+            console.print(json.dumps(quality_check_report, indent=2))
         else:
             detail = response.json().get("detail", "Unknown error")
             console.print(f"[bold red]Error {response.status_code}:[/bold red] [red]{detail}[/red]")

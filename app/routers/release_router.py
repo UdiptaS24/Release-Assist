@@ -11,7 +11,6 @@ def generate_summary(record: dict) -> str:
     return textwrap.dedent(
         f"""
         # Release Request Summary
-        ---
         * **App Name**: {record['app_name']}
         * **Version**: {record['version']}
         * **Release Type**: {record['release_type']}
