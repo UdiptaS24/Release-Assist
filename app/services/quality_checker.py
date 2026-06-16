@@ -1,27 +1,13 @@
-import os
 import re
 import subprocess
-import tempfile
 from collections import Counter
 
 FLAKE8_LINE_PATTERN = re.compile(r'^(?P<file>.+?):(?P<line>\d+):(?P<col>\d+): (?P<code>\w\d+) (?P<message>.+)$')
-
-def clone_repository(repo_url: str, target_dir: str) -> dict:
-    # Temporarily clones the repository into target_dir and return {"success": bool, "error": str}
-    try:
-        result = subprocess.run(["git", "clone", "--depth", "1", repo_url, target_dir], capture_output=True, text=True, timeout=240)
-        if result.returncode != 0:
-            return {"success": False, "error": result.stderr.strip()}
-        return {"success": True, "error": None}
-    except FileNotFoundError:
-        return {"success": False, "error": "Git is not installed or not found in PATH."}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
     
-def run_flake8(target_dir: str) -> str:
+def run_flake8(repo_path: str) -> str:
     # Runs flake8 on the target_dir and returns the raw stdout
     try:
-        result = subprocess.run(["flake8", target_dir, "--format=default"], capture_output=True, text=True, timeout=120)
+        result = subprocess.run(["flake8", repo_path, "--format=default"], capture_output=True, text=True, timeout=120)
         return result.stdout
     except FileNotFoundError:
         return "Error: flake8 is not installed or not found in PATH."
@@ -58,15 +44,11 @@ def parse_flake8_output(raw_output: str, repo_path: str) -> dict:
         "issues": issues
     }
     
-def run_quality_check(repo_url: str) -> dict:
+def run_quality_check(repo_path: str) -> dict:
     # Main function to run the quality check
-    with tempfile.TemporaryDirectory() as temp_dir:
-        clone_result = clone_repository(repo_url, temp_dir)
-        if not clone_result["success"]:
-            return {"status": "error", "message": "Failed to clone repository: " + clone_result["error"]}
-        raw_flake8_output = run_flake8(temp_dir)
-        if raw_flake8_output.startswith("Error:"):
-            return {"status" : "error", "message": raw_flake8_output}
-        parsed_result = parse_flake8_output(raw_flake8_output, temp_dir)
-        parsed_result["status"] = "success"
-        return parsed_result
+    raw_flake8_output = run_flake8(repo_path)
+    if raw_flake8_output.startswith("Error:"):
+        return {"status" : "error", "message": raw_flake8_output}
+    parsed_result = parse_flake8_output(raw_flake8_output, repo_path)
+    parsed_result["status"] = "success"
+    return parsed_result

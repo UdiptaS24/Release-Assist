@@ -1,7 +1,10 @@
 import os
 import json
+import subprocess
+import tempfile
 from app.models.release_model import ReleaseRequest, ReleaseRecord
 from app.services.quality_checker import run_quality_check
+from app.services.vulnerability_checker import run_vulnerability_scan
 
 STORAGE_FILE = 'data/releases.json'
 
@@ -28,13 +31,36 @@ def _save_all_releases(releases: list[dict]) -> None:
     with open(STORAGE_FILE, 'w') as f:
         json.dump(releases, f, indent=4)
 
+def _clone_repository(repo_url: str, target_dir: str) -> dict:
+    # Temporarily clones the repository into target_dir and return {"success": bool, "error": str}
+    try:
+        result = subprocess.run(["git", "clone", "--depth", "1", repo_url, target_dir], capture_output=True, text=True, timeout=240)
+        if result.returncode != 0:
+            return {"success": False, "error": result.stderr.strip()}
+        return {"success": True, "error": None}
+    except FileNotFoundError:
+        return {"success": False, "error": "Git is not installed or not found in PATH."}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    
+def _run_validation(record: ReleaseRecord):
+    # Runs validations such as code quality check, vulnerability check
+    repo_url = record["repository_url"]
+    with tempfile.TemporaryDirectory() as temp_dir:
+        clone_result = _clone_repository(repo_url, temp_dir)
+        if not clone_result["success"]:
+            return {"status": "error", "message": "Failed to clone repository: " + clone_result["error"]}
+        record["validation_report"]["quality_check"] = run_quality_check(temp_dir)
+        record["validation_report"]["vulnerability_scan"] = run_vulnerability_scan(temp_dir)
+        
+        
+
 def store_release_record(new_release_request: ReleaseRequest) -> dict:    
     # Stores a new release record based on the incoming ReleaseRequest, runs code quality check and returns the stored record as dict
     data = _load_all_releases()
     new_release_record = ReleaseRecord(**new_release_request.model_dump())
     new_release_record.repository_url = str(new_release_record.repository_url)
-    quality_check_result = run_quality_check(new_release_record.repository_url)
-    new_release_record.validation_report["quality_check"] = quality_check_result
+    _run_validation(new_release_record)
     record_dict = new_release_record.model_dump(mode="json")
     data.append(record_dict)
     _save_all_releases(data)
