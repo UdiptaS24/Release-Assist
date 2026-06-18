@@ -5,6 +5,7 @@ import tempfile
 from app.models.release_model import ReleaseRequest, ReleaseRecord
 from app.services.quality_checker import run_quality_check
 from app.services.vulnerability_checker import run_vulnerability_scan
+from app.services.dependency_mapper import run_dependency_check
 
 STORAGE_FILE = 'data/releases.json'
 
@@ -43,16 +44,20 @@ def _clone_repository(repo_url: str, target_dir: str) -> dict:
     except Exception as e:
         return {"success": False, "error": str(e)}
     
+def _get_deployed_services() -> list[dict]:
+    return [r for r in _load_all_releases() if r["status"] in ("APPROVED", "SCHEDULED")]
+    
 def _run_validation(record: ReleaseRecord):
     # Runs validations such as code quality check, vulnerability check
-    repo_url = record["repository_url"]
+    repo_url = record.repository_url
     with tempfile.TemporaryDirectory() as temp_dir:
         clone_result = _clone_repository(repo_url, temp_dir)
         if not clone_result["success"]:
-            return {"status": "error", "message": "Failed to clone repository: " + clone_result["error"]}
-        record["validation_report"]["quality_check"] = run_quality_check(temp_dir)
-        record["validation_report"]["vulnerability_scan"] = run_vulnerability_scan(temp_dir)
-        
+            record.validation_report["error"] = f"Failed to clone repository: {clone_result["error"]}"
+            return
+        record.validation_report["quality_check"] = run_quality_check(temp_dir)
+        record.validation_report["vulnerability_scan"] = run_vulnerability_scan(temp_dir)
+        record.validation_report["dependencies"] = run_dependency_check(temp_dir, record.app_name, _get_deployed_services(), )
         
 
 def store_release_record(new_release_request: ReleaseRequest) -> dict:    

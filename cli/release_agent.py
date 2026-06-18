@@ -44,8 +44,8 @@ def submit(
             quality_check_report = response.json()["data"]["validation_report"]["quality_check"]
             console.print(f"[bold green]Release request submitted successfully![/bold green]")
             console.print(Markdown(data_summary))
-            console.print(Markdown("# Quality Check Report"))
-            console.print(json.dumps(quality_check_report, indent=2))
+            # console.print(Markdown("# Quality Check Report"))
+            # console.print(json.dumps(quality_check_report, indent=2))
         else:
             detail = response.json().get("detail", "Unknown error")
             console.print(f"[bold red]Error {response.status_code}:[/bold red] [red]{detail}[/red]")
