@@ -6,6 +6,7 @@ from app.models.release_model import ReleaseRequest, ReleaseRecord
 from app.services.quality_checker import run_quality_check
 from app.services.vulnerability_checker import run_vulnerability_scan
 from app.services.dependency_mapper import run_dependency_check
+from app.services.risk_reporter import generate_risk_report
 
 STORAGE_FILE = 'data/releases.json'
 
@@ -58,7 +59,7 @@ def _run_validation(record: ReleaseRecord):
         record.validation_report["quality_check"] = run_quality_check(temp_dir)
         record.validation_report["vulnerability_scan"] = run_vulnerability_scan(temp_dir)
         record.validation_report["dependencies"] = run_dependency_check(temp_dir, record.app_name, _get_deployed_services(), )
-        
+        record.validation_report["risk_report"] = generate_risk_report(record.validation_report, record.app_name, record.version)
 
 def store_release_record(new_release_request: ReleaseRequest) -> dict:    
     # Stores a new release record based on the incoming ReleaseRequest, runs code quality check and returns the stored record as dict

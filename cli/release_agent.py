@@ -41,11 +41,33 @@ def submit(
                 response = client.post(API_URL, json=payload, timeout=timeout)
         if response.status_code == 201:
             data_summary = response.json()["summary"]
-            quality_check_report = response.json()["data"]["validation_report"]["quality_check"]
+            risk_report = response.json()["data"]["validation_report"].get("risk_report", {})
+            assessment = risk_report.get("assessment", {})
             console.print(f"[bold green]Release request submitted successfully![/bold green]")
             console.print(Markdown(data_summary))
-            # console.print(Markdown("# Quality Check Report"))
-            # console.print(json.dumps(quality_check_report, indent=2))
+            if assessment:
+                rec = assessment.get("recommendation", "UNKNOWN")
+                color_map = {"GO": "green", "GO_WITH_CAUTION": "yellow", "NO_GO": "red"}
+                color = color_map.get(rec, "white")
+                source = risk_report.get("source", "unknown")
+
+                console.print(f"\n[bold {color}]Recommendation: {rec}[/bold {color}]\n"
+                            f"[dim]source: {source}, confidence: {assessment.get('confidence', 'N/A')}[/dim]")
+                console.print(Markdown(f"**Summary:** {assessment.get('summary', '')}"))
+
+                if assessment.get("top_risks"):
+                    console.print("\n[bold]Top Risks:[/bold]")
+                    for i, r in enumerate(assessment["top_risks"], 1):
+                        sev_color = {"CRITICAL": "red", "HIGH": "red", "MEDIUM": "yellow", "LOW": "blue"}.get(r["severity"], "white")
+                        console.print(
+                            f"  {i}. [bold {sev_color}][{r['severity']}][/bold {sev_color}] [bold]{r['title']}[/bold]\n"
+                            f"     [dim]{r.get('description', '')}[/dim]\n"
+                            f"     [green]→ {r['suggested_fix']}[/green]"
+                        )
+                if assessment.get("positive_signals"):
+                    console.print("\n[bold green]Positive signals:[/bold green]")
+                    for s in assessment["positive_signals"]:
+                        console.print(f"  • {s}")              
         else:
             detail = response.json().get("detail", "Unknown error")
             console.print(f"[bold red]Error {response.status_code}:[/bold red] [red]{detail}[/red]")
