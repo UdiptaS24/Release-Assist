@@ -3,707 +3,35 @@
         "id": "pay00001",
         "app_name": "payment-service",
         "version": "1.0.0",
-        "release_type": "minor",
+        "release_type": "major",
         "contact_email": "payments@example.com",
         "repository_url": "https://github.com/UdiptaS24/Repo-A.git",
-        "rollback_plan": "Revert via git tag v0.9.0 and redeploy previous image",
         "status": "APPROVED",
         "created_at": "2026-06-10T10:00:00+00:00",
         "validation_report": {
             "quality_check": {
                 "status": "success",
-                "quality_score": 92,
-                "total_issues": 4,
+                "quality_score": 90,
+                "total_issues": 3,
                 "top_violations": [
                     {
                         "code": "E501",
                         "count": 2
-                    },
-                    {
-                        "code": "W291",
-                        "count": 1
-                    },
-                    {
-                        "code": "F401",
-                        "count": 1
                     }
                 ],
-                "issues": [
-                    {
-                        "file": "app/main.py",
-                        "line": 12,
-                        "col": 80,
-                        "code": "E501",
-                        "message": "line too long (95 > 79 characters)"
-                    },
-                    {
-                        "file": "app/main.py",
-                        "line": 45,
-                        "col": 80,
-                        "code": "E501",
-                        "message": "line too long (88 > 79 characters)"
-                    },
-                    {
-                        "file": "app/services/payment_handler.py",
-                        "line": 23,
-                        "col": 50,
-                        "code": "W291",
-                        "message": "trailing whitespace"
-                    },
-                    {
-                        "file": "app/services/payment_handler.py",
-                        "line": 3,
-                        "col": 1,
-                        "code": "F401",
-                        "message": "'os' imported but unused"
-                    }
-                ]
+                "issues": []
             },
             "vulnerability_scan": {
                 "CRITICAL": [],
                 "HIGH": [],
-                "MEDIUM": [
-                    {
-                        "cve_id": "CVE-2024-3651",
-                        "package": "idna",
-                        "installed_version": "3.4",
-                        "fixed_version": "3.7",
-                        "severity": "MEDIUM",
-                        "cvss_score": 6.2,
-                        "advisory": "A vulnerability was identified in the kjd/idna package's idna.encode() function, where supplying a specially crafted argument could lead to performance degradation..."
-                    }
-                ],
-                "LOW": [
-                    {
-                        "cve_id": "CVE-2024-35195",
-                        "package": "requests",
-                        "installed_version": "2.31.0",
-                        "fixed_version": "2.32.0",
-                        "severity": "LOW",
-                        "cvss_score": 3.1,
-                        "advisory": "Requests is a HTTP library. Prior to 2.32.0, when making requests through a Requests Session with verify=False..."
-                    }
-                ]
+                "MEDIUM": [],
+                "LOW": []
             },
             "dependencies": {
                 "status": "success",
                 "upstream": {
-                    "total": 4,
+                    "total": 1,
                     "packages": [
-                        {
-                            "service": "fastapi",
-                            "required": ">=0.100.0",
-                            "currently_deployed": "EXTERNAL"
-                        },
-                        {
-                            "service": "uvicorn",
-                            "required": ">=0.20.0",
-                            "currently_deployed": "EXTERNAL"
-                        },
-                        {
-                            "service": "pydantic",
-                            "required": ">=2.0.0",
-                            "currently_deployed": "EXTERNAL"
-                        },
-                        {
-                            "service": "httpx",
-                            "required": ">=0.25.0",
-                            "currently_deployed": "EXTERNAL"
-                        }
-                    ]
-                },
-                "downstream": {
-                    "total": 0,
-                    "services": []
-                },
-                "flags": {
-                    "errors": 0,
-                    "warnings": 0,
-                    "details": []
-                }
-            },
-            "risk_assessment": {
-                "status": "success",
-                "source": "gemini",
-                "assessment": {
-                    "recommendation": "GO",
-                    "confidence": "HIGH",
-                    "summary": "Release approved. No CRITICAL or HIGH vulnerabilities, no dependency conflicts, and a strong quality score of 92/100. One MEDIUM idna CVE should be addressed in a follow-up maintenance window.",
-                    "top_risks": [
-                        {
-                            "title": "MEDIUM idna vulnerability (CVE-2024-3651)",
-                            "severity": "MEDIUM",
-                            "category": "VULNERABILITY",
-                            "description": "idna 3.4 has a MEDIUM severity performance degradation issue with crafted input (CVSS 6.2).",
-                            "suggested_fix": "Upgrade idna to 3.7 or later in the next maintenance window."
-                        }
-                    ],
-                    "positive_signals": [
-                        "Quality score of 92/100 indicates well-maintained code",
-                        "Zero CRITICAL or HIGH vulnerabilities",
-                        "All 4 upstream dependencies resolve without conflicts"
-                    ]
-                }
-            }
-        }
-    },
-    {
-        "id": "ord00001",
-        "app_name": "order-service",
-        "version": "2.1.0",
-        "release_type": "minor",
-        "contact_email": "orders@example.com",
-        "repository_url": "https://github.com/UdiptaS24/Repo-B.git",
-        "rollback_plan": "Revert via git tag v2.0.5 and redeploy previous image",
-        "status": "SCHEDULED",
-        "created_at": "2026-06-12T14:00:00+00:00",
-        "validation_report": {
-            "quality_check": {
-                "status": "success",
-                "quality_score": 84,
-                "total_issues": 8,
-                "top_violations": [
-                    {
-                        "code": "E501",
-                        "count": 4
-                    },
-                    {
-                        "code": "F401",
-                        "count": 2
-                    },
-                    {
-                        "code": "E302",
-                        "count": 2
-                    }
-                ],
-                "issues": [
-                    {
-                        "file": "app/main.py",
-                        "line": 8,
-                        "col": 80,
-                        "code": "E501",
-                        "message": "line too long (102 > 79 characters)"
-                    },
-                    {
-                        "file": "app/main.py",
-                        "line": 34,
-                        "col": 80,
-                        "code": "E501",
-                        "message": "line too long (91 > 79 characters)"
-                    },
-                    {
-                        "file": "app/routers/orders.py",
-                        "line": 15,
-                        "col": 80,
-                        "code": "E501",
-                        "message": "line too long (88 > 79 characters)"
-                    },
-                    {
-                        "file": "app/routers/orders.py",
-                        "line": 62,
-                        "col": 80,
-                        "code": "E501",
-                        "message": "line too long (95 > 79 characters)"
-                    },
-                    {
-                        "file": "app/routers/orders.py",
-                        "line": 2,
-                        "col": 1,
-                        "code": "F401",
-                        "message": "'json' imported but unused"
-                    },
-                    {
-                        "file": "app/services/order_service.py",
-                        "line": 4,
-                        "col": 1,
-                        "code": "F401",
-                        "message": "'datetime' imported but unused"
-                    },
-                    {
-                        "file": "app/services/order_service.py",
-                        "line": 18,
-                        "col": 1,
-                        "code": "E302",
-                        "message": "expected 2 blank lines, found 1"
-                    },
-                    {
-                        "file": "app/utils/helpers.py",
-                        "line": 7,
-                        "col": 1,
-                        "code": "E302",
-                        "message": "expected 2 blank lines, found 1"
-                    }
-                ]
-            },
-            "vulnerability_scan": {
-                "CRITICAL": [],
-                "HIGH": [],
-                "MEDIUM": [
-                    {
-                        "cve_id": "CVE-2024-3651",
-                        "package": "idna",
-                        "installed_version": "3.4",
-                        "fixed_version": "3.7",
-                        "severity": "MEDIUM",
-                        "cvss_score": 6.2,
-                        "advisory": "idna.encode() performance degradation with crafted input."
-                    },
-                    {
-                        "cve_id": "CVE-2023-50447",
-                        "package": "pillow",
-                        "installed_version": "10.0.0",
-                        "fixed_version": "10.2.0",
-                        "severity": "MEDIUM",
-                        "cvss_score": 5.5,
-                        "advisory": "Pillow through 10.1.0 allows PIL.ImageMath.eval Arbitrary Code Execution via environment parameter."
-                    }
-                ],
-                "LOW": [
-                    {
-                        "cve_id": "CVE-2024-35195",
-                        "package": "requests",
-                        "installed_version": "2.31.0",
-                        "fixed_version": "2.32.0",
-                        "severity": "LOW",
-                        "cvss_score": 3.1,
-                        "advisory": "Requests session verify=False bypass."
-                    }
-                ]
-            },
-            "dependencies": {
-                "status": "success",
-                "upstream": {
-                    "total": 4,
-                    "packages": [
-                        {
-                            "service": "payment-service",
-                            "required": ">=1.0.0",
-                            "currently_deployed": "1.0.0"
-                        },
-                        {
-                            "service": "fastapi",
-                            "required": ">=0.100.0",
-                            "currently_deployed": "EXTERNAL"
-                        },
-                        {
-                            "service": "uvicorn",
-                            "required": ">=0.20.0",
-                            "currently_deployed": "EXTERNAL"
-                        },
-                        {
-                            "service": "sqlalchemy",
-                            "required": ">=2.0.0",
-                            "currently_deployed": "EXTERNAL"
-                        }
-                    ]
-                },
-                "downstream": {
-                    "total": 0,
-                    "services": []
-                },
-                "flags": {
-                    "errors": 0,
-                    "warnings": 0,
-                    "details": []
-                }
-            },
-            "risk_assessment": {
-                "status": "success",
-                "source": "gemini",
-                "assessment": {
-                    "recommendation": "GO",
-                    "confidence": "MEDIUM",
-                    "summary": "Release approved. No CRITICAL or HIGH vulnerabilities and dependencies resolve cleanly against the production registry. Two MEDIUM vulnerabilities (idna, pillow) should be addressed in a follow-up. Quality score of 84/100 is above threshold.",
-                    "top_risks": [
-                        {
-                            "title": "MEDIUM pillow vulnerability (CVE-2023-50447)",
-                            "severity": "MEDIUM",
-                            "category": "VULNERABILITY",
-                            "description": "pillow 10.0.0 has a MEDIUM severity arbitrary code execution risk via PIL.ImageMath.eval (CVSS 5.5).",
-                            "suggested_fix": "Upgrade pillow to 10.2.0 or later in requirements.txt."
-                        },
-                        {
-                            "title": "MEDIUM idna vulnerability (CVE-2024-3651)",
-                            "severity": "MEDIUM",
-                            "category": "VULNERABILITY",
-                            "description": "idna 3.4 has a MEDIUM severity performance degradation issue with crafted input (CVSS 6.2).",
-                            "suggested_fix": "Upgrade idna to 3.7 or later."
-                        }
-                    ],
-                    "positive_signals": [
-                        "Quality score of 84/100 is above target threshold",
-                        "No CRITICAL or HIGH vulnerabilities",
-                        "Compatible with deployed payment-service v1.0.0"
-                    ]
-                }
-            }
-        }
-    },
-    {
-        "app_name": "billing-service",
-        "version": "1.0.0",
-        "release_type": "minor",
-        "contact_email": "billing@example.com",
-        "repository_url": "https://github.com/UdiptaS24/Repo-A.git",
-        "rollback_plan": "Revert to previous tag and redeploy",
-        "id": "6d49468a",
-        "status": "PENDING",
-        "created_at": "2026-06-19T11:01:12.810937Z",
-        "validation_report": {
-            "quality_check": {
-                "quality_score": 96,
-                "total_issues": 2,
-                "top_violations": [
-                    {
-                        "code": "F401",
-                        "count": 1
-                    },
-                    {
-                        "code": "W292",
-                        "count": 1
-                    }
-                ],
-                "issues": [
-                    {
-                        "file": "app.py",
-                        "line": 2,
-                        "col": 1,
-                        "code": "F401",
-                        "message": "'httpx' imported but unused"
-                    },
-                    {
-                        "file": "app.py",
-                        "line": 3,
-                        "col": 16,
-                        "code": "W292",
-                        "message": "no newline at end of file"
-                    }
-                ],
-                "status": "success"
-            },
-            "vulnerability_scan": {
-                "total_vulnerabilities": 0,
-                "vulnerable_packages": 0,
-                "severity_counts": {
-                    "CRITICAL": 0,
-                    "HIGH": 0,
-                    "MEDIUM": 0,
-                    "LOW": 0
-                },
-                "vulnerabilities": {
-                    "CRITICAL": [],
-                    "HIGH": [],
-                    "MEDIUM": [],
-                    "LOW": []
-                },
-                "status": "success"
-            },
-            "dependencies": {
-                "status": "success",
-                "upstream": {
-                    "total": 4,
-                    "packages": [
-                        {
-                            "service": "uvicorn",
-                            "required": ">=0.20.0",
-                            "currently_deployed": "EXTERNAL"
-                        },
-                        {
-                            "service": "httpx",
-                            "required": ">=0.25.0",
-                            "currently_deployed": "EXTERNAL"
-                        },
-                        {
-                            "service": "pydantic",
-                            "required": ">=2.0.0",
-                            "currently_deployed": "EXTERNAL"
-                        },
-                        {
-                            "service": "fastapi",
-                            "required": ">=0.100.0",
-                            "currently_deployed": "EXTERNAL"
-                        }
-                    ]
-                },
-                "downstream": {
-                    "total": 0,
-                    "services": []
-                },
-                "flags": {
-                    "errors": 0,
-                    "warnings": 0,
-                    "details": []
-                }
-            },
-            "risk_report": {
-                "status": "success",
-                "source": "LLM",
-                "assessment": {
-                    "recommendation": "GO",
-                    "confidence": "HIGH",
-                    "summary": "All validation checks passed with excellent results. Quality score is 96/100, no vulnerabilities were detected, and all upstream dependencies resolved cleanly. This release is safe to deploy.",
-                    "top_risks": [],
-                    "positive_signals": [
-                        "Excellent quality score of 96/100",
-                        "Zero vulnerabilities across all severity buckets",
-                        "All upstream dependencies resolve without conflicts",
-                        "No downstream services impacted by this release"
-                    ]
-                }
-            }
-        }
-    },
-    {
-        "app_name": "order-service-v2",
-        "version": "2.2.0",
-        "release_type": "minor",
-        "contact_email": "orders@example.com",
-        "repository_url": "https://github.com/UdiptaS24/Repo-B.git",
-        "rollback_plan": "Revert deployment via Helm rollback",
-        "id": "f9e59bc0",
-        "status": "PENDING",
-        "created_at": "2026-06-19T11:03:21.020400Z",
-        "validation_report": {
-            "quality_check": {
-                "quality_score": 92,
-                "total_issues": 4,
-                "top_violations": [
-                    {
-                        "code": "F401",
-                        "count": 3
-                    },
-                    {
-                        "code": "W292",
-                        "count": 1
-                    }
-                ],
-                "issues": [
-                    {
-                        "file": "main.py",
-                        "line": 1,
-                        "col": 1,
-                        "code": "F401",
-                        "message": "'fastapi.FastAPI' imported but unused"
-                    },
-                    {
-                        "file": "main.py",
-                        "line": 2,
-                        "col": 1,
-                        "code": "F401",
-                        "message": "'uvicorn' imported but unused"
-                    },
-                    {
-                        "file": "main.py",
-                        "line": 3,
-                        "col": 1,
-                        "code": "F401",
-                        "message": "'payment_service' imported but unused"
-                    },
-                    {
-                        "file": "main.py",
-                        "line": 3,
-                        "col": 46,
-                        "code": "W292",
-                        "message": "no newline at end of file"
-                    }
-                ],
-                "status": "success"
-            },
-            "vulnerability_scan": {
-                "total_vulnerabilities": 0,
-                "vulnerable_packages": 0,
-                "severity_counts": {
-                    "CRITICAL": 0,
-                    "HIGH": 0,
-                    "MEDIUM": 0,
-                    "LOW": 0
-                },
-                "vulnerabilities": {
-                    "CRITICAL": [],
-                    "HIGH": [],
-                    "MEDIUM": [],
-                    "LOW": []
-                },
-                "status": "success"
-            },
-            "dependencies": {
-                "status": "success",
-                "upstream": {
-                    "total": 4,
-                    "packages": [
-                        {
-                            "service": "uvicorn",
-                            "required": null,
-                            "currently_deployed": "EXTERNAL"
-                        },
-                        {
-                            "service": "some-random-package",
-                            "required": null,
-                            "currently_deployed": "EXTERNAL"
-                        },
-                        {
-                            "service": "payment-service",
-                            "required": "==2.0.0",
-                            "currently_deployed": "1.0.0"
-                        },
-                        {
-                            "service": "fastapi",
-                            "required": "==0.95.0",
-                            "currently_deployed": "EXTERNAL"
-                        }
-                    ]
-                },
-                "downstream": {
-                    "total": 0,
-                    "services": []
-                },
-                "flags": {
-                    "errors": 1,
-                    "warnings": 2,
-                    "details": [
-                        {
-                            "type": "VERSION_CONFLICT",
-                            "service": "payment-service",
-                            "severity": "ERROR",
-                            "required": "==2.0.0",
-                            "production_version": "1.0.0",
-                            "message": "Requires ==2.0.0 but production is running v1.0.0",
-                            "explanation": "Exact pin mismatch, production is running v1.0.0 but this release strictly requires ==2.0.0. Will likely cause runtime errors."
-                        },
-                        {
-                            "type": "UNPINNED_DEPENDENCY",
-                            "service": "uvicorn",
-                            "severity": "WARNING",
-                            "message": "'uvicorn' has no version constraint.",
-                            "explanation": "Unpinned dependencies can break builds when upstream releases a new major versionPin to at least >=X.Y, <X+1"
-                        },
-                        {
-                            "type": "UNPINNED_DEPENDENCY",
-                            "service": "some-random-package",
-                            "severity": "WARNING",
-                            "message": "'some-random-package' has no version constraint.",
-                            "explanation": "Unpinned dependencies can break builds when upstream releases a new major versionPin to at least >=X.Y, <X+1"
-                        }
-                    ]
-                }
-            },
-            "risk_report": {
-                "status": "success",
-                "source": "LLM",
-                "assessment": {
-                    "recommendation": "NO_GO",
-                    "confidence": "HIGH",
-                    "summary": "Release blocked due to a critical dependency conflict: order-service-v2 requires payment-service v2.0.0, but production is running v1.0.0. This will cause runtime errors. While quality score is good and no vulnerabilities were found, this dependency issue is a hard blocker.",
-                    "top_risks": [
-                        {
-                            "title": "Hard version conflict with payment-service",
-                            "severity": "HIGH",
-                            "category": "DEPENDENCY",
-                            "description": "This release pins payment-service==2.0.0 but production is running v1.0.0. Deployment will fail at runtime.",
-                            "suggested_fix": "Either coordinate a payment-service upgrade to 2.0.0 first, or relax the pin to >=1.0.0,<3.0.0."
-                        },
-                        {
-                            "title": "Unpinned uvicorn dependency",
-                            "severity": "MEDIUM",
-                            "category": "DEPENDENCY",
-                            "description": "uvicorn has no version constraint, which can lead to unpredictable behavior across builds.",
-                            "suggested_fix": "Pin uvicorn to a known-good range, e.g., uvicorn>=0.20.0,<1.0.0."
-                        },
-                        {
-                            "title": "Unpinned 'some-random-package' dependency",
-                            "severity": "MEDIUM",
-                            "category": "DEPENDENCY",
-                            "description": "'some-random-package' has no version constraint, which can lead to unpredictable behavior across builds.",
-                            "suggested_fix": "Pin 'some-random-package' to a known-good range, e.g., some-random-package>=1.0.0,<2.0.0."
-                        }
-                    ],
-                    "positive_signals": [
-                        "Quality score of 92/100 is above target threshold",
-                        "Zero vulnerabilities across all severity buckets"
-                    ]
-                }
-            }
-        }
-    },
-    {
-        "app_name": "payment-service",
-        "version": "2.0.0",
-        "release_type": "major",
-        "contact_email": "payments@example.com",
-        "repository_url": "https://github.com/UdiptaS24/Repo-A.git",
-        "rollback_plan": "Revert via git tag v1.0.0 and redeploy previous image",
-        "id": "b5311d47",
-        "status": "PENDING",
-        "created_at": "2026-06-19T11:06:02.742524Z",
-        "validation_report": {
-            "quality_check": {
-                "quality_score": 96,
-                "total_issues": 2,
-                "top_violations": [
-                    {
-                        "code": "F401",
-                        "count": 1
-                    },
-                    {
-                        "code": "W292",
-                        "count": 1
-                    }
-                ],
-                "issues": [
-                    {
-                        "file": "app.py",
-                        "line": 2,
-                        "col": 1,
-                        "code": "F401",
-                        "message": "'httpx' imported but unused"
-                    },
-                    {
-                        "file": "app.py",
-                        "line": 3,
-                        "col": 16,
-                        "code": "W292",
-                        "message": "no newline at end of file"
-                    }
-                ],
-                "status": "success"
-            },
-            "vulnerability_scan": {
-                "total_vulnerabilities": 0,
-                "vulnerable_packages": 0,
-                "severity_counts": {
-                    "CRITICAL": 0,
-                    "HIGH": 0,
-                    "MEDIUM": 0,
-                    "LOW": 0
-                },
-                "vulnerabilities": {
-                    "CRITICAL": [],
-                    "HIGH": [],
-                    "MEDIUM": [],
-                    "LOW": []
-                },
-                "status": "success"
-            },
-            "dependencies": {
-                "status": "success",
-                "upstream": {
-                    "total": 4,
-                    "packages": [
-                        {
-                            "service": "uvicorn",
-                            "required": ">=0.20.0",
-                            "currently_deployed": "EXTERNAL"
-                        },
-                        {
-                            "service": "httpx",
-                            "required": ">=0.25.0",
-                            "currently_deployed": "EXTERNAL"
-                        },
-                        {
-                            "service": "pydantic",
-                            "required": ">=2.0.0",
-                            "currently_deployed": "EXTERNAL"
-                        },
                         {
                             "service": "fastapi",
                             "required": ">=0.100.0",
@@ -727,21 +55,223 @@
                     "details": []
                 }
             },
-            "risk_report": {
-                "status": "success",
-                "source": "LLM",
+            "risk_assessment": {
+                "source": "rule_based",
                 "assessment": {
                     "recommendation": "GO",
                     "confidence": "HIGH",
-                    "summary": "All validation checks passed with excellent results. Quality score is 96/100, no vulnerabilities were detected at any severity level, and no dependency conflicts or warnings were flagged. This release is safe to proceed.",
+                    "summary": "Initial stable release with no blocking issues.",
                     "top_risks": [],
                     "positive_signals": [
-                        "Exceptional quality score of 96/100",
-                        "Zero vulnerabilities across all severity buckets",
-                        "No dependency conflicts or warnings detected",
-                        "Compatible with downstream order-service v2.1.0"
+                        "No vulnerabilities",
+                        "Good code quality"
                     ]
                 }
+            },
+            "git_commit_sha": "PUT_SHA_OF_v1.0.0_HERE"
+        },
+        "change_snapshot": {
+            "status": "not_applicable",
+            "reason": "Initial release \u00e2\u20ac\u201d no previous version to diff"
+        }
+    },
+    {
+        "id": "ord00001",
+        "app_name": "order-service",
+        "version": "2.1.0",
+        "release_type": "minor",
+        "repository_url": "https://github.com/UdiptaS24/Repo-B.git",
+        "status": "APPROVED",
+        "created_at": "2026-06-12T14:00:00+00:00",
+        "validation_report": {
+            "dependencies": {
+                "upstream": {
+                    "total": 1,
+                    "packages": [
+                        {
+                            "service": "payment-service",
+                            "required": ">=1.0.0",
+                            "currently_deployed": "1.0.0"
+                        }
+                    ]
+                },
+                "downstream": {
+                    "total": 0,
+                    "services": []
+                },
+                "flags": {
+                    "errors": 0,
+                    "warnings": 0,
+                    "details": []
+                }
+            }
+        },
+        "change_snapshot": {
+            "status": "not_applicable"
+        }
+    },
+    {
+        "app_name": "payment-service",
+        "version": "1.1.0",
+        "release_type": "minor",
+        "contact_email": "payments@example.com",
+        "repository_url": "https://github.com/UdiptaS24/Repo-A.git",
+        "rollback_plan": "Rollback to v1.0.0",
+        "id": "4bdce84b",
+        "status": "PENDING",
+        "created_at": "2026-06-22T11:02:01.135699Z",
+        "validation_report": {
+            "quality_check": {
+                "quality_score": 96,
+                "total_issues": 2,
+                "top_violations": [
+                    {
+                        "code": "E402",
+                        "count": 1
+                    },
+                    {
+                        "code": "W292",
+                        "count": 1
+                    }
+                ],
+                "issues": [
+                    {
+                        "file": "app.py",
+                        "line": 4,
+                        "col": 1,
+                        "code": "E402",
+                        "message": "module level import not at top of file"
+                    },
+                    {
+                        "file": "app.py",
+                        "line": 7,
+                        "col": 29,
+                        "code": "W292",
+                        "message": "no newline at end of file"
+                    }
+                ],
+                "status": "success"
+            },
+            "vulnerability_scan": {
+                "total_vulnerabilities": 0,
+                "vulnerable_packages": 0,
+                "severity_counts": {
+                    "CRITICAL": 0,
+                    "HIGH": 0,
+                    "MEDIUM": 0,
+                    "LOW": 0
+                },
+                "vulnerabilities": {
+                    "CRITICAL": [],
+                    "HIGH": [],
+                    "MEDIUM": [],
+                    "LOW": []
+                },
+                "status": "success"
+            },
+            "dependencies": {
+                "status": "success",
+                "upstream": {
+                    "total": 6,
+                    "packages": [
+                        {
+                            "service": "dotenv",
+                            "required": "UNSPECIFIED",
+                            "currently_deployed": "EXTERNAL"
+                        },
+                        {
+                            "service": "os",
+                            "required": "UNSPECIFIED",
+                            "currently_deployed": "EXTERNAL"
+                        },
+                        {
+                            "service": "python-dotenv",
+                            "required": null,
+                            "currently_deployed": "EXTERNAL"
+                        },
+                        {
+                            "service": "fastapi",
+                            "required": ">=0.100.0",
+                            "currently_deployed": "EXTERNAL"
+                        },
+                        {
+                            "service": "uvicorn",
+                            "required": ">=0.20.0",
+                            "currently_deployed": "EXTERNAL"
+                        },
+                        {
+                            "service": "pydantic",
+                            "required": ">=2.0.0",
+                            "currently_deployed": "EXTERNAL"
+                        }
+                    ]
+                },
+                "downstream": {
+                    "total": 1,
+                    "services": [
+                        {
+                            "service": "order-service",
+                            "version": "2.1.0",
+                            "required_version": ">=1.0.0"
+                        }
+                    ]
+                },
+                "flags": {
+                    "errors": 0,
+                    "warnings": 1,
+                    "details": [
+                        {
+                            "type": "UNPINNED_DEPENDENCY",
+                            "service": "python-dotenv",
+                            "severity": "WARNING",
+                            "message": "'python-dotenv' has no version constraint.",
+                            "explanation": "Unpinned dependencies can break builds when upstream releases a new major versionPin to at least >=X.Y, <X+1"
+                        }
+                    ]
+                }
+            },
+            "risk_report": {
+                "status": "success",
+                "source": "rule_based",
+                "assessment": {
+                    "recommendation": "GO",
+                    "confidence": "MEDIUM",
+                    "summary": "Rule-based assessment: GO. 0 critical / 0 high vulnerabilities, 0 dependency errors, quality score 96/100.",
+                    "top_risks": [],
+                    "positive_signals": []
+                }
+            }
+        },
+        "change_snapshot": {
+            "status": "completed",
+            "is_first_release": false,
+            "current_version": "1.1.0",
+            "previous_version": "1.0.0",
+            "resolved_previous_ref": "v1.0.0",
+            "summary": {
+                "total_files_changed": 2,
+                "added": 0,
+                "modified": 2,
+                "deleted": 0,
+                "renamed": 0
+            },
+            "files": [
+                {
+                    "status": "modified",
+                    "file": "app.py"
+                },
+                {
+                    "status": "modified",
+                    "file": "requirements.txt"
+                }
+            ],
+            "schema_migrations_detected": [],
+            "config_files_modified": [],
+            "new_env_vars_detected": {
+                "added": [],
+                "removed": [
+                    "ENV_2"
+                ]
             }
         }
     }

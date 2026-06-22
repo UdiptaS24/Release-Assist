@@ -16,3 +16,4 @@ class ReleaseRecord(ReleaseRequest):
     status: Literal["PENDING", "IN_REVIEW", "APPROVED", "SCHEDULED"] = Field(default="PENDING", description="Current status of the release: PENDING, IN_REVIEW, APPROVED, SCHEDULED")
     created_at: datetime = Field(default_factory= lambda: datetime.now(timezone.utc), description="Timestamp when the release record was created")
     validation_report: Dict[str, Any] = Field(default_factory=dict, description="Detailed report of the repository analysis and validation results")
+    change_snapshot: Dict[str, Any] = Field(default_factory=dict, description="Change snapshot showing difference between incoming version and last released version")

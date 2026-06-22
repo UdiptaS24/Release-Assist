@@ -7,6 +7,7 @@ from app.services.quality_checker import run_quality_check
 from app.services.vulnerability_checker import run_vulnerability_scan
 from app.services.dependency_mapper import run_dependency_check
 from app.services.risk_reporter import generate_risk_report
+from app.services.snapshot_generator import generate_change_snapshot
 
 STORAGE_FILE = 'data/releases.json'
 
@@ -47,6 +48,17 @@ def _clone_repository(repo_url: str, target_dir: str) -> dict:
     
 def _get_deployed_services() -> list[dict]:
     return [r for r in _load_all_releases() if r["status"] in ("APPROVED", "SCHEDULED")]
+
+def _get_previous_version(app_name: str, current_version: str) -> str | None:
+    prior = [r for r in _load_all_releases()
+             if r["app_name"].lower() == app_name.lower()
+             and r["version"] != current_version
+             and r["status"] in ("APPROVED", "SCHEDULED")]
+    if not prior:
+        return None
+    prior.sort(key=lambda r: r["created_at"], reverse=True)
+    return prior[0]["version"]
+
     
 def _run_validation(record: ReleaseRecord):
     # Runs validations such as code quality check, vulnerability check
@@ -58,7 +70,9 @@ def _run_validation(record: ReleaseRecord):
             return
         record.validation_report["quality_check"] = run_quality_check(temp_dir)
         record.validation_report["vulnerability_scan"] = run_vulnerability_scan(temp_dir)
-        record.validation_report["dependencies"] = run_dependency_check(temp_dir, record.app_name, _get_deployed_services(), )
+        record.validation_report["dependencies"] = run_dependency_check(temp_dir, record.app_name, _get_deployed_services())
+        prev_version = _get_previous_version(record.app_name, record.version)
+        record.change_snapshot = generate_change_snapshot(temp_dir, record.version, prev_version)
         record.validation_report["risk_report"] = generate_risk_report(record.validation_report, record.app_name, record.version)
 
 def store_release_record(new_release_request: ReleaseRequest) -> dict:    
