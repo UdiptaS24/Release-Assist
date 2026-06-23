@@ -8,6 +8,7 @@ from app.services.vulnerability_checker import run_vulnerability_scan
 from app.services.dependency_mapper import run_dependency_check
 from app.services.risk_reporter import generate_risk_report
 from app.services.snapshot_generator import generate_change_snapshot
+from app.services.gate_engine import apply_gate_logic
 
 STORAGE_FILE = 'data/releases.json'
 
@@ -74,6 +75,8 @@ def _run_validation(record: ReleaseRecord):
         prev_version = _get_previous_version(record.app_name, record.version)
         record.change_snapshot = generate_change_snapshot(temp_dir, record.version, prev_version)
         record.validation_report["risk_report"] = generate_risk_report(record.validation_report, record.app_name, record.version)
+        record.validation_report["gate_decision"] = apply_gate_logic(record.validation_report, record.change_snapshot)
+        record.status = record.validation_report["gate_decision"]["outcome"]
 
 def store_release_record(new_release_request: ReleaseRequest) -> dict:    
     # Stores a new release record based on the incoming ReleaseRequest, runs code quality check and returns the stored record as dict

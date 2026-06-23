@@ -13,7 +13,7 @@ class ReleaseRequest(BaseModel):
 
 class ReleaseRecord(ReleaseRequest):
     id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8], description="Unique identifier of a release record")
-    status: Literal["PENDING", "IN_REVIEW", "APPROVED", "SCHEDULED"] = Field(default="PENDING", description="Current status of the release: PENDING, IN_REVIEW, APPROVED, SCHEDULED")
+    status: Literal["PENDING", "APPROVED", "NEEDS_REVIEW", "BLOCKED"] = Field(default="PENDING", description="Current status of the release automatically set by agent: PENDING, APPROVED, NEEDS_REVIEW, BLOCKED")
     created_at: datetime = Field(default_factory= lambda: datetime.now(timezone.utc), description="Timestamp when the release record was created")
     validation_report: Dict[str, Any] = Field(default_factory=dict, description="Detailed report of the repository analysis and validation results")
     change_snapshot: Dict[str, Any] = Field(default_factory=dict, description="Change snapshot showing difference between incoming version and last released version")
