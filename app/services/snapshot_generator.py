@@ -57,27 +57,38 @@ def extract_env_variables(raw_diff: str) -> dict:
     added = set()
     removed = set()
 
-    env_file_added   = re.compile(r'^\+(?!\+\+)\s*([A-Z_][A-Z0-9_]*)=')
+    env_file_added = re.compile(r'^\+(?!\+\+)\s*([A-Z_][A-Z0-9_]*)=')
     env_file_removed = re.compile(r'^-(?!--)\s*([A-Z_][A-Z0-9_]*)=')
 
-    code_pattern = re.compile(r'os\.(?:environ(?:\.get)?\[[\'\"]([\w]+)[\'\"]\]|getenv\([\'\"]([\w]+)[\'\"]\))')
+    code_pattern = re.compile(
+        r'os\.(?:getenv|environ\.get)\(\s*[\'"]([A-Z_][A-Z0-9_]*)[\'"]'
+        r'|os\.environ\[\s*[\'"]([A-Z_][A-Z0-9_]*)[\'"]\s*\]'
+    )
 
     for line in raw_diff.splitlines():
         if line.startswith("+") and not line.startswith("+++"):
-            match = env_file_added.match(line)
-            if match:
-                added.add(match.group(1))
-            for m in code_pattern.finditer(line):
-                added.add(m.group(1) or m.group(2))
+            env_match = env_file_added.match(line)
+            if env_match:
+                added.add(env_match.group(1))
+
+            for match in code_pattern.finditer(line):
+                var_name = match.group(1) or match.group(2)
+                if var_name:
+                    added.add(var_name)
+
         elif line.startswith("-") and not line.startswith("---"):
-            match = env_file_removed.match(line)
-            if match:
-                removed.add(match.group(1))
-            for m in code_pattern.finditer(line):
-                removed.add(m.group(1) or m.group(2))
-    return{
+            env_match = env_file_removed.match(line)
+            if env_match:
+                removed.add(env_match.group(1))
+
+            for match in code_pattern.finditer(line):
+                var_name = match.group(1) or match.group(2)
+                if var_name:
+                    removed.add(var_name)
+
+    return {
         "added": sorted(added - removed),
-        "removed": sorted(removed - added)
+        "removed": sorted(removed - added),
     }
 
 def build_first_release_snapshot(target_dir: str, current_version: str) -> dict:
@@ -163,7 +174,7 @@ def generate_change_snapshot(target_dir: str, current_version: str, previous_ver
     
     
     return {
-        "status": "completed",
+        "status": "success",
         "is_first_release": False,
         "current_version": current_version,
         "previous_version": previous_version,

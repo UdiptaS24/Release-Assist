@@ -216,7 +216,7 @@ def build_downstream_map(app_name: str, deployed_services: list[dict]) -> list[d
 def run_dependency_check(repo_dir: str, app_name: str, deployed_services: list[dict]) -> dict:
     declared_requirements = extract_declared_requirements(repo_dir)
     if not declared_requirements:
-        return{"status": "error", "reason": "No requiremnets.txt file found"}
+        return{"status": "error", "reason": "No requirements.txt file found"}
     actual_imports = extract_actual_imports(repo_dir)
 
     production_registry = {normalise_package_name(s["app_name"]) : s["version"] 

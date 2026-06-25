@@ -1,7 +1,10 @@
 import os
 import json
+import uuid
+import shutil
 import subprocess
 import tempfile
+from datetime import datetime
 from app.models.release_model import ReleaseRequest, ReleaseRecord
 from app.services.quality_checker import run_quality_check
 from app.services.vulnerability_checker import run_vulnerability_scan
@@ -9,8 +12,10 @@ from app.services.dependency_mapper import run_dependency_check
 from app.services.risk_reporter import generate_risk_report
 from app.services.snapshot_generator import generate_change_snapshot
 from app.services.gate_engine import apply_gate_logic
+from app.services.deployment_scheduler import run_scheduler
 
 STORAGE_FILE = 'data/releases.json'
+WORK_DIR_ROOT = 'work'
 
 # auxiliary functions to handle file-based storage of release records
 def _load_all_releases() -> list[dict]:
@@ -46,7 +51,8 @@ def _clone_repository(repo_url: str, target_dir: str) -> dict:
         return {"success": False, "error": "Git is not installed or not found in PATH."}
     except Exception as e:
         return {"success": False, "error": str(e)}
-    
+
+
 def _get_deployed_services() -> list[dict]:
     return [r for r in _load_all_releases() if r["status"] in ("APPROVED", "SCHEDULED")]
 
@@ -60,7 +66,6 @@ def _get_previous_version(app_name: str, current_version: str) -> str | None:
     prior.sort(key=lambda r: r["created_at"], reverse=True)
     return prior[0]["version"]
 
-    
 def _run_validation(record: ReleaseRecord):
     # Runs validations such as code quality check, vulnerability check
     repo_url = record.repository_url
@@ -107,6 +112,16 @@ def update_release_status(release_id: str, new_status: str) -> dict | None:
     for record in data:
         if record['id'] == release_id:
             record['status'] = new_status
+            _save_all_releases(data)
+            return record
+    return None
+
+def schedule_release(release_id: str, requested_start: datetime, requested_end: datetime, notify_contacts: list[str] | None = None) -> dict | None:
+    data = _load_all_releases()
+    for record in data:
+        if record["id"] == release_id:
+            schedule_result = run_scheduler(record, requested_start, requested_end, notify_contacts or [])
+            record["schedule"] = schedule_result
             _save_all_releases(data)
             return record
     return None

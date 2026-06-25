@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from typing import Literal
 import textwrap
-from app.models.release_model import ReleaseRequest
+from app.models.release_model import ReleaseRequest, ScheduleRequest
 from app.controllers import release_controller
 
 router = APIRouter(prefix="/releases", tags=["releases"])
@@ -86,4 +86,29 @@ async def update_release_status(release_id: str, new_status: Literal["PENDING", 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while updating the release status: {str(e)}"
+        )
+
+@router.post("/{release_id}/schedule", response_model=dict, status_code=status.HTTP_200_OK)
+async def schedule_release(release_id: str, payload: ScheduleRequest):
+    try:
+        updated_record = release_controller.schedule_release(
+            release_id=release_id,
+            requested_start=payload.requested_start,
+            requested_end=payload.requested_end,
+            notify_contacts=[str(email) for email in payload.notify_contacts]
+        )
+
+        if not updated_record:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Release record with id {release_id} not found")
+        return{
+            "message": "Deployement scheduling evaluated successfully",
+            "data": updated_record,
+            "schedule": updated_record.get("schedule", {})
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occured while scheduling deployment: {str(e)}"
         )

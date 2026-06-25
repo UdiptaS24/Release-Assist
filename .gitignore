@@ -2,6 +2,9 @@
 # 1. PROJECT SPECIFIC
 # ==========================================
 /data/releases.json
+/work/
+/tests/
+run.py
 
 # Ignore any temporary test repositories
 /temp_repos/
@@ -51,6 +54,8 @@ wheels/
 # ==========================================
 # 5. LINTING, TESTING & LOGS
 # ==========================================
+
+pytest.ini
 # Flake8 and pytest caches
 .pytest_cache/
 .mypy_cache/
