@@ -1,9 +1,16 @@
+import os
 import re
 import subprocess
 from collections import Counter
 
 FLAKE8_LINE_PATTERN = re.compile(r'^(?P<file>.+?):(?P<line>\d+):(?P<col>\d+): (?P<code>\w\d+) (?P<message>.+)$')
-    
+
+def _has_python_files(repo_path: str) -> bool:
+    for root, _, files in os.walk(repo_path):
+        if any(f.endswith(".py") for f in files):
+            return True
+    return False
+
 def run_flake8(repo_path: str) -> str:
     # Runs flake8 on the target_dir and returns the raw stdout
     try:
@@ -46,9 +53,21 @@ def parse_flake8_output(raw_output: str, repo_path: str) -> dict:
     
 def run_quality_check(repo_path: str) -> dict:
     # Main function to run the quality check
+    if not repo_path or not os.path.exists(repo_path) or not os.listdir(repo_path):
+        return {
+            "status": "skipped",
+            "message": "Repository is empty - nothing to scan.",
+            "reason": "Empty repository"
+        }
+    if not _has_python_files(repo_path):
+        return {
+            "status": "skipped",
+            "message": "No Python files found - quality scan not applicable.",
+            "reason": "No Python files"
+        }
     raw_flake8_output = run_flake8(repo_path)
     if raw_flake8_output.startswith("Error:"):
-        return {"status" : "error", "message": raw_flake8_output}
+        return {"status" : "error", "message": raw_flake8_output, "reason": "Flake8 execution failed"}
     parsed_result = parse_flake8_output(raw_flake8_output, repo_path)
     parsed_result["status"] = "success"
     return parsed_result

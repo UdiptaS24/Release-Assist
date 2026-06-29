@@ -8,9 +8,18 @@ load_dotenv()
 REQ_PATTERN = re.compile(r'^([a-zA-Z0-9\-_.]+)(?:\[[\w,\s-]+\])?(.*?)$')
 SPECIFIER_PATTERN = re.compile(r'(==|!=|~=|>=|<=|>|<)\s*([\d]+\.[\d]+(?:\.[\d]+)?(?:\.[\d]+)?)')
 INTERNAL_SERVICE_PATTERNS = os.getenv("INTERNAL_PATTERNS").split(',')
+INTERNAL_SERVICE_PATTERNS = [p.strip() for p in INTERNAL_SERVICE_PATTERNS if p.strip()]
 
 def normalise_package_name(package_name: str) -> str:
     return package_name.lower().replace("_", "-").replace(".", "-")
+
+
+def _is_empty_repo(repo_dir: str) -> bool:
+    if not repo_dir or not os.path.exists(repo_dir):
+        return True
+    items = [item for item in os.listdir(repo_dir) if item != ".git"]
+    return len(items) == 0
+
 
 def extract_actual_imports(repo_dir: str) -> set:
     imports = set()
@@ -37,18 +46,19 @@ def extract_declared_requirements(repo_dir: str) -> dict:
     requirements = {}
     if not os.path.exists(req_file):
         return requirements
-    
-    with open(req_file, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.split("#")[0].strip()
-            if not line or line.startswith("-"):
-                continue
-            match = REQ_PATTERN.match(line)
-            if match:
-                package_name = normalise_package_name(match.group(1))
-                version_spec = match.group(2).strip() or None
-                requirements[package_name] = version_spec
-    
+    try:
+        with open(req_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.split("#")[0].strip()
+                if not line or line.startswith("-"):
+                    continue
+                match = REQ_PATTERN.match(line)
+                if match:
+                    package_name = normalise_package_name(match.group(1))
+                    version_spec = match.group(2).strip() or None
+                    requirements[package_name] = version_spec
+    except Exception:
+        return requirements
     return requirements
 
 def parse_version(version_str: str) -> tuple[int, ...]:
@@ -214,6 +224,13 @@ def build_downstream_map(app_name: str, deployed_services: list[dict]) -> list[d
     return downstream_map
 
 def run_dependency_check(repo_dir: str, app_name: str, deployed_services: list[dict]) -> dict:
+    if _is_empty_repo(repo_dir):
+        return {
+            "status": "skipped",
+            "reason": "Empty or missing repository — dependency check not applicable."
+        }
+
+    
     declared_requirements = extract_declared_requirements(repo_dir)
     if not declared_requirements:
         return{"status": "error", "reason": "No requirements.txt file found"}

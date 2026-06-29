@@ -135,7 +135,6 @@ def view_release(release_id: str = typer.Argument(..., help="ID of the release r
             response = client.get(f"{API_URL}/{release_id}")
         if response.status_code == 200:
             data_summary = response.json()["summary"]
-            quality_check_report = response.json()["data"]["validation_report"]["quality_check"]
             console.print(Markdown(data_summary))
         else:
             detail = response.json().get("detail", "Unknown error")
@@ -151,7 +150,7 @@ def schedule_release(
     release_id: str = typer.Argument(..., help="ID of the release request to schedule"),
     requested_start: str = typer.Option(..., "--start", help="Requested deployment start time (e.g. '2026-06-29 11:00' or '29 June 2026 11 AM)"),
     requested_end: str = typer.Option(..., "--end", help="Requested deployment end time (e.g. '2026-06-29 11:00' or '29 June 2026 11 AM)"),
-    notify_contacts: list[str] = typer.Option(..., "--notify", help="Email addresses to notify (can be passes multiple times)")
+    notify_contacts: list[str] = typer.Option(None, "--notify", help="Email addresses to notify (can be passes multiple times)")
 ):
     console.print(f"[yellow]Scheduling release [bold]{release_id}[/bold]...[/yellow]")
     try:
@@ -281,6 +280,9 @@ def _render_pipeline_log(record):
     table.add_column("Step", style="cyan")
     table.add_column("Status", style="bold")
     table.add_column("Message", style="dim")
+    table.add_column("Reason", style="dim")
+    table.add_column("Timestamp", style="dim")
+
 
     for entry in record.get("pipeline_log", []):
         status = entry["status"]
@@ -289,7 +291,9 @@ def _render_pipeline_log(record):
         table.add_row(
             entry["step"],
             f"[{status_color}]{status}[/{status_color}]",
-            entry["message"] or "-"
+            entry["message"] or "-",
+            entry["reason"] or "-",
+            entry["timestamp"] or "-"
         )
 
     console.print(table)

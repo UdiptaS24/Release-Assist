@@ -1,10 +1,16 @@
 from datetime import datetime, timedelta, time
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from calendar import monthrange
-import holidays
+try:
+    import holidays
+    PUBLIC_HOLIDAYS = holidays.India()
+except Exception:
+    PUBLIC_HOLIDAYS = {}
 
-
-BUSINESS_TIMEZONE = ZoneInfo("Asia/Kolkata")
+try:
+    BUSINESS_TIMEZONE = ZoneInfo("Asia/Kolkata")
+except ZoneInfoNotFoundError:
+    BUSINESS_TIMEZONE = None
 BUSINESS_START = time(10, 0)
 BUSINESS_END = time(18, 0)
 DEFAULT_DEPLOYMENT_DURATION_MINUTES = 60
@@ -14,10 +20,11 @@ MONTH_END_FREEZE_DAYS = 3
 YEAR_END_FREEZE_START = (12, 24)
 YEAR_END_FREEZE_END = (1, 2)
 
-PUBLIC_HOLIDAYS = holidays.India()
 
 
 def to_business_timezone(dt: datetime) -> datetime:
+    if not BUSINESS_TIMEZONE:
+        return dt
     if dt.tzinfo is None:
         return dt.replace(tzinfo=BUSINESS_TIMEZONE)
     return dt.astimezone(BUSINESS_TIMEZONE)
@@ -28,9 +35,12 @@ def is_weekend(dt: datetime) -> bool:
 
 
 def is_month_end_freeze(dt: datetime, days_before_month_end: int = MONTH_END_FREEZE_DAYS) -> bool:
-    last_day = monthrange(dt.year, dt.month)[1]
-    freeze_start_day = last_day - days_before_month_end + 1
-    return dt.day >= freeze_start_day
+    try:
+        last_day = monthrange(dt.year, dt.month)[1]
+        freeze_start_day = last_day - days_before_month_end + 1
+        return dt.day >= freeze_start_day
+    except Exception:
+        return False
 
 
 def is_year_end_freeze(dt: datetime) -> bool:
@@ -41,11 +51,31 @@ def is_year_end_freeze(dt: datetime) -> bool:
 
 
 def is_public_holiday(dt: datetime) -> bool:
-    return dt.date() in PUBLIC_HOLIDAYS
+    try:
+        return dt.date() in PUBLIC_HOLIDAYS
+    except Exception:
+        return False
 
 
 def get_public_holiday_name(dt: datetime) -> str:
-    return PUBLIC_HOLIDAYS.get(dt.date()) or "Public holiday"
+    try:
+        return PUBLIC_HOLIDAYS.get(dt.date()) or "Public holiday"
+    except Exception:
+        return "Public holiday"
+
+
+
+def _parse_datetime(value) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value)
+        except Exception:
+            return None
+    return None
 
 
 def check_blackout_conflicts(start: datetime, end: datetime) -> list[dict]:
@@ -60,7 +90,7 @@ def check_blackout_conflicts(start: datetime, end: datetime) -> list[dict]:
             "reason": "Weekends are not allowed for deployments."
         })
 
-    if (is_month_end_freeze(start) or is_month_end_freeze(end)):
+    if is_month_end_freeze(start) or is_month_end_freeze(end):
         conflicts.append({
             "type": "MONTH_END_FREEZE",
             "name": "Month-end freeze",
@@ -116,7 +146,11 @@ def suggest_next_available_slot(
 
     candidate_start = normalize_to_business_window(requested_start + timedelta(days=1))
 
+    safety_counter = 0
     while True:
+        safety_counter += 1
+        if safety_counter > 60:
+            break
         candidate_start = normalize_to_business_window(candidate_start)
         candidate_end = candidate_start + timedelta(minutes=duration_minutes)
 
@@ -124,14 +158,8 @@ def suggest_next_available_slot(
             return candidate_start, candidate_end
 
         candidate_start = candidate_start + timedelta(days=1)
-
-
-def _parse_datetime(value: datetime | str) -> datetime:
-    if isinstance(value, datetime):
-        return value
-    if isinstance(value, str):
-        return datetime.fromisoformat(value)
-    raise TypeError("requested_start and requested_end must be datetime or ISO timestamp strings")
+    
+    return candidate_start, candidate_start + timedelta(minutes=duration_minutes)
 
 
 def _blocked(reason: str, conflict_type: str, start: datetime, end: datetime, contacts: list[str]) -> dict:
@@ -158,6 +186,24 @@ def run_scheduler(release_record: dict) -> dict:
     requested_end = _parse_datetime(release_record["requested_end"])
     notify_contacts = release_record["notify_contacts"] or []
     release_status = release_record.get("status")
+    
+    if not requested_start or not requested_end:
+        return _blocked(
+            "Invalid or missing requested deployment dates.",
+            "INVALID_REQUEST",
+            requested_start,
+            requested_end,
+            notify_contacts
+        )
+    
+    if requested_end <= requested_start:
+        return _blocked(
+            "Deployment end time must be after start time.",
+            "INVALID_TIME_RANGE",
+            requested_start,
+            requested_end,
+            notify_contacts
+        )
 
     if release_status == "BLOCKED":
         return _blocked(

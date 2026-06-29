@@ -14,10 +14,48 @@ MIGRATION_PATTERS = ["migration", "alembic", "migrate", ".sql", "schema"]
 CONFIG_EXTENSIONS = (".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf")
 ENV_FILE_NAMES = (".env", ".env.example", ".env.sample")
 
-def run_git(command: list, target_dir: str) -> tuple[str, bool]:
-    result = subprocess.run(command, cwd=target_dir, capture_output=True, text=True)
-    return result.stdout.strip(), result.returncode == 0
+# Helpers
 
+def _is_empty_repo(target_dir: str) -> bool:
+    if not target_dir or not os.path.exists(target_dir):
+        return True
+    items = [item for item in os.listdir(target_dir) if item != ".git"]
+    return len(items) == 0
+
+
+def _is_git_repo(target_dir: str) -> bool:
+    return os.path.exists(os.path.join(target_dir, ".git"))
+
+
+def _safe_version_tuple(version: str) -> tuple:
+    try:
+        return tuple(int(x) for x in version.strip().split("."))
+    except Exception:
+        return (0,)
+
+
+def _is_rollback(current_version: str, previous_version: str | None) -> bool:
+    if not previous_version:
+        return False
+    return _safe_version_tuple(current_version) < _safe_version_tuple(previous_version)
+
+
+def run_git(command: list, target_dir: str) -> tuple[str, bool]:
+    try:
+        result = subprocess.run(
+            command,
+            cwd=target_dir,
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        return result.stdout.strip(), result.returncode == 0
+    except FileNotFoundError:
+        return "Error: git not installed", False
+    except subprocess.TimeoutExpired:
+        return "Error: git command timed out", False
+    except Exception as e:
+        return f"Error running git: {str(e)}", False
 
 def resolve_version_ref(target_dir: str, version: str) -> str | None:
     for candidate in (version, f"v{version}"):
@@ -127,6 +165,31 @@ def build_first_release_snapshot(target_dir: str, current_version: str) -> dict:
     }
 
 def generate_change_snapshot(target_dir: str, current_version: str, previous_version: str | None = None) -> dict:
+    if _is_empty_repo(target_dir):
+        return {
+            "status": "skipped",
+            "reason": "Empty or missing repository — snapshot not applicable.",
+            "current_version": current_version,
+            "previous_version": previous_version
+        }
+    
+    if not _is_git_repo(target_dir):
+        return {
+            "status": "skipped",
+            "reason": "Target directory is not a git repository.",
+            "current_version": current_version,
+            "previous_version": previous_version
+        }
+    
+    if _is_rollback(current_version, previous_version):
+        return {
+            "status": "skipped",
+            "reason": f"Rollback request detected: deploying older version {current_version} (previous: {previous_version}).",
+            "current_version": current_version,
+            "previous_version": previous_version,
+            "is_rollback": True
+        }
+
     if not previous_version:
         return build_first_release_snapshot(target_dir, current_version)
     

@@ -351,8 +351,8 @@ def call_llm(payload: dict) -> dict | None:
     api_key = os.getenv("GEMINI_API_KEY")
     model = os.getenv("GEMINI_MODEL")
 
-    if not api_key:
-        print("[risk_reporter] GOOGLE_API_KEY not set, skipping LLM call.")
+    if not api_key or not model:
+        print("[risk_reporter] Missing GOOGLE_API_KEY or GEMINI_MODEL, skipping LLM call.")
         return None
     
     try:
@@ -364,16 +364,21 @@ def call_llm(payload: dict) -> dict | None:
                 "system_instruction": SYSTEM_PROMPT,
                 "response_mime_type": "application/json",
                 "temperature": 0.1,
-                "max_output_tokens": 1500
+                "max_output_tokens": 1500,
             },
         )
 
         return json.loads(response.text)
+    
     except json.JSONDecodeError as e:  
         print(f"[risk_reporter] Failed to parse Gemini JSON response: {e}")
         return None
     except Exception as e:
-        print(f"[risk_reporter] Gemini call failed: {e}")
+        error_msg = str(e).lower()
+        if "timeout" in error_msg:
+            print("[risk_reporter] Gemini LLM call timed out — falling back to rule-based.")
+        else:
+            print(f"[risk_reporter] Gemini call failed: {e}")
         return None
 
 # Rule based fallback
@@ -382,8 +387,8 @@ def rule_based(validation_report: dict) -> dict:
     vs = validation_report.get("vulnerability_scan", {})
     deps = validation_report.get("dependencies", {})
 
-    critical = vs.get("CRITICAL", [])
-    high = vs.get("HIGH", [])
+    critical = vs.get("severity_counts", {}).get("CRITICAL", [])
+    high = vs.get("severity_counts", {}).get("HIGH", [])
     flags = deps.get("flags", {})
     errors = flags.get("errors", 0)
     warnings = flags.get("warnings", 0)
@@ -435,7 +440,7 @@ def rule_based(validation_report: dict) -> dict:
 
 def generate_risk_report(validation_report: dict, app_name: str, version: str) -> dict:
     if not validation_report:
-        return {"status": "error", "message": "No validation report provided."}
+        return {"status": "error", "message": "No validation report provided.", "reason": "Missing validation report"}
     
     payload = {
         "app_name": app_name,
@@ -447,4 +452,4 @@ def generate_risk_report(validation_report: dict, app_name: str, version: str) -
     if llm_result is not None:
         return {"status": "success", "source": "LLM", "assessment": llm_result}
     
-    return {"status": "success", "source": "rule_based", "assessment": rule_based(validation_report)}
+    return {"status": "success", "source": "rule_based", "assessment": rule_based(validation_report), "reason": "Used rule-based fallback because LLM was unavailable or failed."}

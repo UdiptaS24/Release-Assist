@@ -3,6 +3,7 @@ import json
 import subprocess
 import tempfile
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from app.models.release_model import ReleaseRequest, ReleaseRecord
 from app.services.quality_checker import run_quality_check
 from app.services.vulnerability_checker import run_vulnerability_scan
@@ -47,6 +48,8 @@ def _clone_repository(repo_url: str, target_dir: str) -> dict:
         return {"success": True, "error": None}
     except FileNotFoundError:
         return {"success": False, "error": "Git is not installed or not found in PATH."}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": "Git clone timed out."}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -63,23 +66,6 @@ def _get_previous_version(app_name: str, current_version: str) -> str | None:
         return None
     prior.sort(key=lambda r: r["created_at"], reverse=True)
     return prior[0]["version"]
-
-def _run_validation(record: ReleaseRecord):
-    # Runs validations such as code quality check, vulnerability check
-    repo_url = record.repository_url
-    with tempfile.TemporaryDirectory() as temp_dir:
-        clone_result = _clone_repository(repo_url, temp_dir)
-        if not clone_result["success"]:
-            record.validation_report["error"] = f"Failed to clone repository: {clone_result["error"]}"
-            return
-        record.validation_report["quality_check"] = run_quality_check(temp_dir)
-        record.validation_report["vulnerability_scan"] = run_vulnerability_scan(temp_dir)
-        record.validation_report["dependencies"] = run_dependency_check(temp_dir, record.app_name, _get_deployed_services())
-        prev_version = _get_previous_version(record.app_name, record.version)
-        record.change_snapshot = generate_change_snapshot(temp_dir, record.version, prev_version)
-        record.validation_report["risk_report"] = generate_risk_report(record.validation_report, record.app_name, record.version)
-        record.validation_report["gate_decision"] = apply_gate_logic(record.validation_report, record.change_snapshot)
-        record.status = record.validation_report["gate_decision"]["outcome"]
 
 def store_release_record(new_release_request: ReleaseRequest) -> dict:    
     # Stores a new release record based on the incoming ReleaseRequest, runs code quality check and returns the stored record as dict
@@ -107,8 +93,8 @@ def schedule_release(release_id: str, requested_start: datetime, requested_end: 
     data = _load_all_releases()
     for record in data:
         if record["id"] == release_id:
-            record["requested_start"] = requested_start
-            record["requested_end"] = requested_end
+            record["requested_start"] = requested_start.isoformat() if isinstance(requested_start, datetime) else str(requested_start)
+            record["requested_end"] = requested_end.isoformat() if isinstance(requested_end, datetime) else str(requested_end)
             record["notify_contacts"] = notify_contacts or []
             schedule_result = run_scheduler(record)
             record["schedule"] = schedule_result
@@ -130,11 +116,13 @@ LEGAL_TRANSITIONS = {
 class PipelineHardBlock(Exception):
     """Raised when the agent must stop the pipeline safely."""
 
-def _log_step(record: dict, step: str, status: str, message: str = ""):
+def _log_step(record: dict, step: str, status: str, message: str = "", reason: str | None = None):
     record.setdefault("pipeline_log", []).append({
         "step": step,
         "status": status,
         "message": message,
+        "reason": reason,
+        "timestamp": datetime.now(ZoneInfo("Asia/Kolkata")).isoformat()
     })
 
 
@@ -149,9 +137,34 @@ def _transition_status(record: dict, new_status: str):
         )
     record["status"] = new_status
 
+# Edge case helpers
+def _is_empty_repo(repo_dir: str) -> bool:
+    if not os.path.exists(repo_dir):
+        return True
+    return len([f for f in os.listdir(repo_dir) if f != ".git"]) == 0
+
+def is_rollback_request(record: dict) -> bool:
+    prev = _get_previous_version(record["app_name"], record["version"])
+    if not prev:
+        return False
+    try:
+        current_tuple = tuple(int(x) for x in record["version"].split("."))
+        prev_tuple = tuple(int(x) for x in prev.split("."))
+        return current_tuple < prev_tuple
+    except Exception:
+        return False
+
+# Defensive step runner  
+def _safe_run(record, step_name, fn, *args, **kwargs):
+    try:
+        return fn(*args, **kwargs)
+    except Exception as e:
+        _log_step(record, step_name, "error", message=str(e), reason="Unhandled exception in step")
+        return None
 
 def _step_clone(record: dict, target_dir: str) -> str:
     repo_url = record["repository_url"]
+    last_error = None
 
     for attempt in range(1, MAX_CLONE_RETRIES + 1):
         clone_result = _clone_repository(repo_url, target_dir)
@@ -160,51 +173,60 @@ def _step_clone(record: dict, target_dir: str) -> str:
             _log_step(record, "clone", "success",
                       f"Cloned on attempt {attempt}")
             return
+        last_error = clone_result["error"]
 
-        if attempt == MAX_CLONE_RETRIES:
-            record["validation_report"]["error"] = (
-                f"Failed to clone repository after {attempt} attempts: "
-                f"{clone_result['error']}"
-            )
-            _log_step(record, "clone", "failed", clone_result["error"])
-            raise PipelineHardBlock("Clone failed after max retries.")
+        record["validation_report"]["error"] = (
+            f"Failed to clone repository after {attempt} attempts: {last_error}"
+        )
+        _log_step(record, "clone", "failed", message=last_error, reason="Clone retries exhausted")
+        raise PipelineHardBlock("Clone failed after maximum retries.")
 
 
 def _step_quality(record: dict, repo_dir: str):
-    result = run_quality_check(repo_dir)
+    result = _safe_run(record, "quality_check", run_quality_check, repo_dir)
+    if not result:
+        result = {"status": "error", "message": "Quality check skipped due to error"}
     record["validation_report"]["quality_check"] = result
     step_status = result.get("status", "unknown")
-    message = result.get("message", "") if step_status == "error" else ""
+    message = result.get("message", "Quality check was successfull")
     _log_step(record, "quality_check", step_status, message)
 
 
 def _step_vulnerabilities(record: dict, repo_dir: str):
-    result = run_vulnerability_scan(repo_dir)
+    result = _safe_run(record, "vulnerability_scan", run_vulnerability_scan, repo_dir)
+    if not result:
+        result = {"status": "error", "error": "Vulnerability scan skipped due to error"}
     record["validation_report"]["vulnerability_scan"] = result
     step_status = result.get("status", "unknown")
-    message = result.get("error", "") if step_status == "error" else ""
+    message = result.get("error", "Vulnerability scan was successfull")
     _log_step(record, "vulnerability_scan", step_status, message)
 
 
 def _step_dependencies(record: dict, repo_dir: str):
-    result = run_dependency_check(
-        repo_dir,
-        record["app_name"],
-        _get_deployed_services(),
+    result = _safe_run(
+        record, "dependency_check", run_dependency_check,
+        repo_dir, record["app_name"], _get_deployed_services(),
     )
+    if not result:
+        result = {"status": "error", "reason": "Dependency check skipped due to error"}
+
     record["validation_report"]["dependencies"] = result
     step_status = result.get("status", "unknown")
-    message = result.get("reason", "") if step_status == "error" else ""
+    message = result.get("reason", "Dependency mapping was successfull")
     _log_step(record, "dependency_check", step_status, message)
 
 
 def _step_risk(record: dict):
-    result = generate_risk_report(
+    result = _safe_run(
+        record, "risk_report", generate_risk_report,
         record["validation_report"], record["app_name"], record["version"]
     )
+    if not result:
+        result = {"status": "error", "message": "Risk report skipped due to error"}
+
     record["validation_report"]["risk_report"] = result
     step_status = result.get("status", "unknown")
-    message = result.get("message", "") if step_status == "error" else ""
+    message = result.get("message", "Risk assessment was successfull")
     _log_step(record, "risk_report", step_status, message)
 
 
@@ -212,23 +234,26 @@ def _step_snapshot(record: dict, repo_dir: str):
     previous_version = _get_previous_version(
         record["app_name"], record["version"]
     )
-    snapshot = generate_change_snapshot(
+    snapshot = _safe_run(
+        record, "change_snapshot", generate_change_snapshot,
         repo_dir, record["version"], previous_version
     )
+    if not snapshot:
+        snapshot = {"status": "error", "message": "Change snapshot skipped due to error"}
+
     record["change_snapshot"] = snapshot    
     step_status = snapshot.get("status", "unknown")
-    message = ""
-    if step_status == "skipped":
-        message = snapshot.get("reason", "Snapshot skipped")
-    elif step_status == "error":
-        message = snapshot.get("message", "")
+    message = snapshot.get("reason", snapshot.get("message", "Change snapshot successfully recorded"))
     _log_step(record, "change_snapshot", step_status, message)
 
 
 def _step_gate(record: dict):
-    decision = apply_gate_logic(
+    decision = _safe_run(
+        record, "gate_decision", apply_gate_logic,
         record["validation_report"], record["change_snapshot"]
     )
+    if not decision:
+        decision = {"outcome": "NEEDS_REVIEW", "reason": "Gate skipped due to error"}
     record["validation_report"]["gate_decision"] = decision
     new_status = decision.get("outcome", "NEEDS_REVIEW")
     _transition_status(record, new_status)
@@ -241,16 +266,15 @@ def _step_schedule(record: dict):
                   f"Not eligible: status={record['status']}")
         return
 
-    schedule_result = run_scheduler(record)
+    schedule_result = _safe_run(record, "scheduler", run_scheduler, record)
+    if not schedule_result:
+        schedule_result = {"status": "BLOCKED","reason": "Scheduler skipped due to error"}
     record["schedule"] = schedule_result
 
     if schedule_result["status"] == "SCHEDULED":
         _transition_status(record, "SCHEDULED")
-        _log_step(record, "scheduler", "scheduled",
-                  schedule_result["reason"])
-    else:
-        _log_step(record, "scheduler", schedule_result["status"].lower(),
-                  schedule_result["reason"])
+    _log_step(record, "scheduler", schedule_result.get("status", "unknown").lower(),
+                  schedule_result.get("reason", ""))
 
 
 def run_pipeline(release_id: str) -> dict | None:
@@ -270,6 +294,13 @@ def run_pipeline(release_id: str) -> dict | None:
     try:
         with tempfile.TemporaryDirectory() as repo_dir:
             _step_clone(record, repo_dir)
+
+            if _is_empty_repo(repo_dir):
+                _log_step(record, "edge_case", "warning", "Cloned repository is empty.", reason="Empty repository")
+            
+            if is_rollback_request(record):
+                _log_step(record, "edge_case", "warning", "Version rollback request detected.", reason="Rollback detected")
+
             _step_quality(record, repo_dir)
             _step_vulnerabilities(record, repo_dir)
             _step_dependencies(record, repo_dir)
@@ -281,19 +312,15 @@ def run_pipeline(release_id: str) -> dict | None:
 
     except PipelineHardBlock as block:
         record["pipeline_status"] = "STOPPED"
-        record["pipeline_log"].append({
-            "step": "agent",
-            "status": "hard_block",
-            "message": str(block),
-        })
+        _log_step(record, "agent", "hard_block",
+            message=str(block), reason="Hard block raised"
+        )
 
     except Exception as exc:
         record["pipeline_status"] = "FAILED"
-        record["pipeline_log"].append({
-            "step": "agent",
-            "status": "error",
-            "message": str(exc),
-        })
+        _log_step(record, "agent", "error", 
+            message=str(exc), reason="unexpected exception"
+        )
 
     for i, existing in enumerate(data):
         if existing["id"] == release_id:
