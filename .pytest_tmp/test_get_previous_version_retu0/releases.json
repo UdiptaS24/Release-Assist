@@ -1,0 +1,26 @@
+[
+    {
+        "app_name": "payment-service",
+        "version": "1.0.0",
+        "status": "APPROVED",
+        "created_at": "2026-06-10T10:00:00+00:00"
+    },
+    {
+        "app_name": "payment-service",
+        "version": "1.1.0",
+        "status": "SCHEDULED",
+        "created_at": "2026-06-12T10:00:00+00:00"
+    },
+    {
+        "app_name": "payment-service",
+        "version": "1.2.0",
+        "status": "PENDING",
+        "created_at": "2026-06-13T10:00:00+00:00"
+    },
+    {
+        "app_name": "other-service",
+        "version": "9.9.9",
+        "status": "APPROVED",
+        "created_at": "2026-06-14T10:00:00+00:00"
+    }
+]

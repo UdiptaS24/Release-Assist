@@ -17,6 +17,9 @@ def generate_summary(record: dict) -> str:
         * **Contact Email**: {record['contact_email']}
         * **Repository URL**: {record['repository_url']}
         * **Rollback Plan**: {record['rollback_plan']}
+        * **Requested schedule start time**: {record['requested_start']}
+        * **Requested schedule end time**: {record['requested_end']}
+        * **Contacts to notify**: {",".join(record['notify_contacts'])}
         * **Status**: {record['status']}
         """
     ).strip()
@@ -68,26 +71,6 @@ async def get_release(release_id: str):
             detail=f"An error occurred while fetching the release record: {str(e)}"
         )
 
-@router.patch("/{release_id}/status", response_model=dict, status_code=status.HTTP_200_OK)
-async def update_release_status(release_id: str, new_status: Literal["PENDING", "IN_REVIEW", "APPROVED", "SCHEDULED"]):
-    try:
-        updated_record = release_controller.update_release_status(release_id, new_status)
-        if updated_record:
-            summary = generate_summary(updated_record)
-            return {"data": updated_record, "summary": summary}
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Release record with ID {release_id} not found"
-            )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An error occurred while updating the release status: {str(e)}"
-        )
-
 @router.post("/{release_id}/schedule", response_model=dict, status_code=status.HTTP_200_OK)
 async def schedule_release(release_id: str, payload: ScheduleRequest):
     try:
@@ -111,4 +94,31 @@ async def schedule_release(release_id: str, payload: ScheduleRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occured while scheduling deployment: {str(e)}"
+        )
+    
+@router.post("/{release_id}/run", response_model=dict, status_code=status.HTTP_200_OK)
+async def run_release_pipeline(release_id: str):
+    try:
+        record = release_controller.run_pipeline(release_id)
+
+        if not record:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Release record with ID {release_id} not found",
+            )
+
+        return {
+            "message": "Release pipeline executed",
+            "data": record,
+            "pipeline_status": record.get("pipeline_status"),
+            "pipeline_log": record.get("pipeline_log", []),
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while running the pipeline: {str(e)}",
         )

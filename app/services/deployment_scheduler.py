@@ -126,6 +126,14 @@ def suggest_next_available_slot(
         candidate_start = candidate_start + timedelta(days=1)
 
 
+def _parse_datetime(value: datetime | str) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        return datetime.fromisoformat(value)
+    raise TypeError("requested_start and requested_end must be datetime or ISO timestamp strings")
+
+
 def _blocked(reason: str, conflict_type: str, start: datetime, end: datetime, contacts: list[str]) -> dict:
     return {
         "status": "BLOCKED",
@@ -144,14 +152,11 @@ def _blocked(reason: str, conflict_type: str, start: datetime, end: datetime, co
     }
 
 
-def run_scheduler(
-    release_record: dict,
-    requested_start: datetime,
-    requested_end: datetime,
-    notify_contacts: list[str] | None = None
-) -> dict:
+def run_scheduler(release_record: dict) -> dict:
 
-    notify_contacts = notify_contacts or []
+    requested_start = _parse_datetime(release_record["requested_start"])
+    requested_end = _parse_datetime(release_record["requested_end"])
+    notify_contacts = release_record["notify_contacts"] or []
     release_status = release_record.get("status")
 
     if release_status == "BLOCKED":

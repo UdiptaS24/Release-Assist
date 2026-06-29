@@ -1,0 +1,12 @@
+[
+    {
+        "id": "one",
+        "app_name": "a",
+        "status": "APPROVED"
+    },
+    {
+        "id": "two",
+        "app_name": "b",
+        "status": "BLOCKED"
+    }
+]
