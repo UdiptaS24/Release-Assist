@@ -41,17 +41,18 @@ def submit(
     notify_contacts: list[str] = typer.Option(..., "--notify", help="Email addresses to notify (can be passes multiple times)"),
     json_output: bool = typer.Option(False, "--json", help="Output the response in JSON format")
 ):
-    console.print(f"[yellow]Submitting release request for [bold]{app_name}[/bold] version [bold]{version}[/bold]...[/yellow]")
+    if not json_output:
+        console.print(f"[yellow]Submitting release request for [bold]{app_name}[/bold] version [bold]{version}[/bold]...[/yellow]")
     try:
         start_dt = date_parser.parse(requested_start, dayfirst=False)
     except Exception:
-        console.print(f"[bold red]Could not parse start date: '{requested_start}'[/bold red]")
+        console.print(f"[bold red]Could not parse start date: '{requested_start}'[/bold red]") if not json_output else None
         raise typer.Exit(code=1)
 
     try:
         end_dt = date_parser.parse(requested_end, dayfirst=False)
     except Exception:
-        console.print(f"[bold red]Could not parse end date: '{requested_end}'[/bold red]")
+        console.print(f"[bold red]Could not parse end date: '{requested_end}'[/bold red]") if not json_output else None
         raise typer.Exit(code=1)
     
     payload = {
@@ -68,13 +69,17 @@ def submit(
     try:
         timeout = httpx.Timeout(connect=10.0, read=600.0, write=600.0, pool=600.0
         )
-        with console.status("[bold cyan]Generating summary...[/bold cyan]", spinner="dots"):
+        if json_output:
             with httpx.Client(timeout=timeout) as client:
                 response = client.post(API_URL, json=payload, timeout=timeout)
+        else:
+            with console.status("[bold cyan]Generating summary...[/bold cyan]", spinner="dots"):
+                with httpx.Client(timeout=timeout) as client:
+                    response = client.post(API_URL, json=payload, timeout=timeout)
         if response.status_code == 201:
             if json_output:
                 response_json = response.json()
-                print(json.dumps(response_json["data"]))
+                print(json.dumps(response_json["data"], separators=(',', ':')))
                 return
             data_summary = response.json()["summary"]
             data = response.json()["data"]
@@ -243,21 +248,26 @@ def run_pipeline_command(
     release_id: str = typer.Argument(..., help="ID of the release to run the full agentic pipeline for"),
     json_output: bool = typer.Option(False, "--json", help="Output the response in JSON format")
 ):
-    console.print(f"[yellow]Running agentic pipeline for "
+    if not json_output:
+        console.print(f"[yellow]Running agentic pipeline for "
                   f"release [bold]{release_id}[/bold]...[/yellow]")
 
     try:
-        with console.status("[bold cyan]Executing pipeline steps...[/bold cyan]",
-                            spinner="dots"):
+        if json_output:
             with httpx.Client(timeout=httpx.Timeout(900.0)) as client:
                 response = client.post(f"{API_URL}/{release_id}/run")
+        else:
+            with console.status("[bold cyan]Executing pipeline steps...[/bold cyan]",
+                                spinner="dots"):
+                with httpx.Client(timeout=httpx.Timeout(900.0)) as client:
+                    response = client.post(f"{API_URL}/{release_id}/run")
     except httpx.HTTPError as e:
-        console.print(f"[bold red]Failed to run pipeline: {e}[/bold red]")
+        console.print(f"[bold red]Failed to run pipeline: {e}[/bold red]") if not json_output else None
         raise typer.Exit(code=1)
 
     if response.status_code != 200:
         detail = response.json().get("detail", "Unknown error")
-        console.print(f"[bold red]Error {response.status_code}:[/bold red] [red]{detail}[/red]")
+        console.print(f"[bold red]Error {response.status_code}:[/bold red] [red]{detail}[/red]") if not json_output else None
         raise typer.Exit(code=1)
 
     body = response.json()
