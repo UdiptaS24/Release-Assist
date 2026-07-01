@@ -1,0 +1,237 @@
+name: Release Assist Pipeline
+
+on:
+  workflow_call:
+    types: [labeled]
+
+jobs:
+  run-pipeline:
+    env:
+      RELEASE_API_URL: http://127.0.0.1:8000/releases
+      INTERNAL_PATTERNS: -service,-api,-worker,-gateway,-client
+      GEMINI_MODEL: gemini-3.1-flash-lite
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    if: contains(github.event.pull_request.labels.*.name, 'release')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@v4
+
+      - name: Checkout Release Assist engine
+        uses: actions/checkout@v4
+        with:
+          repository: UdiptaS24/Release-Assist
+          path: release-assist
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+        
+      - run: pip install -r release-assist/requirements.txt
+      - run: pip install pyyaml jq
+
+      - name: Get PR description
+        run: |
+          echo '${{ github.event.pull_request.body }}' > pr_body.txt
+
+      - name: Parse PR description
+        run: |
+          python <<EOF
+          import yaml
+          import sys
+
+          def fail(msg):
+              print(f"[ERROR] {msg}")
+              sys.exit(1)
+
+          with open("pr_body.txt") as f:
+              try:
+                  data = yaml.safe_load(f.read()) or {}
+              except Exception:
+                  fail("PR description is not valid YAML")
+          
+          if not isinstance(data, dict):
+              fail("PR description must be a YAML object")
+          
+          release = data.get("release", {})
+          deployment = data.get("deployment", {})
+          notify = data.get("notify", [])
+
+          if not release:
+              fail("Missing 'release' section in PR")
+          
+          required_release_fields = [
+              "app_name", "version", "release_type", "contact_email", "rollback_plan"
+          ]
+
+          
+          for field in required_release_fields:
+              if not release.get(field):
+                  fail(f"Missing release.{field}")
+
+          
+          if not deployment:
+              fail("Missing 'deployment' section")
+
+          for field in ["start", "end"]:
+              if not deployment.get(field):
+                  fail(f"Missing deployment.{field}")
+          
+          if not isinstance(notify, list) or not notify:
+              fail("'notify' must be a non-empty list")
+
+          for email in notify:
+              if not isinstance(email, str) or "@" not in email:
+                  fail(f"Invalid email in notify: {email}")
+
+          def safe(val):
+              return "" if val is None else str(val)
+          
+          with open("release_env.sh", "w") as f:         
+              f.write(f"APP_NAME='{safe(release.get('app_name'))}'\n")
+              f.write(f"VERSION='{safe(release.get('version'))}'\n")
+              f.write(f"RELEASE_TYPE='{safe(release.get('release_type'))}'\n")
+              f.write(f"EMAIL='{safe(release.get('contact_email'))}'\n")
+              f.write(f"ROLLBACK='{safe(release.get('rollback_plan'))}'\n")
+              f.write(f"START='{safe(deployment.get('start'))}'\n")
+              f.write(f"END='{safe(deployment.get('end'))}'\n")
+              f.write(f"NOTIFY='{safe(','.join(notify))}'\n")
+          
+          print("PR input validation passed")
+          EOF
+      
+      
+      - name: Handle validation failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: "**Release Assist Error:** Invalid PR description format. Please follow the required YAML schema."
+            });
+
+      - name: Start Release Assist API
+        run: |
+          cd release-assist
+          uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          sleep 5
+
+      - name: Set API URL
+        run: echo "API_URL=http://127.0.0.1:8000/releases" >> $GITHUB_ENV
+      
+      - name: Submit release
+        run: |      
+          source release_env.sh
+
+          CMD="python release-assist/cli/release_agent.py submit \
+            --app-name \"$APP_NAME\" \
+            --version \"$VERSION\" \
+            --release-type \"$RELEASE_TYPE\" \
+            --email \"$EMAIL\" \
+            --repo-url \"https://github.com/${{ github.repository }}.git\" \
+            --rollback-plan \"$ROLLBACK\" \
+            --start \"$START\" \
+            --end \"$END\""
+            
+            IFS=',' read -ra EMAILS <<< "$NOTIFY"
+            for e in "${EMAILS[@]}"; do
+              if [ -n "$e" ]; then
+                CMD="$CMD --notify \"$e\""
+              fi
+            done
+
+            eval "$CMD > submit_output.json"
+
+      - name: Extract release ID
+        run: |
+          echo "RELEASE_ID=$(jq -r '.id' submit_output.json)" >> $GITHUB_ENV
+
+      - name: Run pipeline
+        run : |
+          python release-assist/cli/release_agent.py run $RELEASE_ID > output.json
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const data = JSON.parse(fs.readFileSync('output.json', 'utf8'));
+
+            const status = data.status || "UNKNOWN";
+            const pipeline = data.pipeline_status || "UNKNOWN";
+            const gate = data.validation_report?.gate_decision?.outcome || "UNKNOWN";
+            const gateReason = data.validation_report?.gate_decision?.reason || "N/A";
+            const schedule = data.schedule?.status || "N/A";
+
+            // Risk summary
+            const risks = data.validation_report?.risk_report?.assessment?.top_risks || [];
+            let riskSection = " No major risks detected";
+
+            if (risks.length > 0) {
+              riskSection = risks.map(r =>
+                `- **${r.severity}**: ${r.title}\n  → ${r.suggested_fix}`
+              ).join("\n\n");
+            }
+
+            // Quality summary
+            const qc = data.validation_report?.quality_check || {};
+            const qualityScore = qc.quality_score ?? "N/A";
+
+            // Vulnerabilities
+            const vulns = data.validation_report?.vulnerability_scan?.severity_counts || {};
+            const vulnSummary = Object.entries(vulns)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(" | ");
+
+            const comment = `
+            ## Release Assist Report
+
+            ### Pipeline Summary
+            - **Pipeline Status**: ${pipeline}
+            - **Final Release Status**: ${status}
+
+            ---
+
+            ### Gate Decision
+            - **Outcome**: ${gate}
+            - **Reason**: ${gateReason}
+
+            ---
+
+            ### Deployment Scheduling
+            - **Status**: ${schedule}
+
+            ---
+
+            ### Validation Summary
+            - **Quality Score**: ${qualityScore}
+            - **Vulnerabilities**: ${vulnSummary || "N/A"}
+
+            ---
+
+            ### Top Risks
+            ${riskSection}
+
+            ---
+
+            ### Raw Output (for debugging)
+            <details>
+            <summary>Expand</summary>
+
+            \`\`\`json
+            ${JSON.stringify(data, null, 2)}
+            \`\`\`
+
+            </details>
+                  `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
