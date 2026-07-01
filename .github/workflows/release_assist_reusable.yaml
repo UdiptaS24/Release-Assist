@@ -144,6 +144,10 @@ jobs:
             done
 
             eval "$CMD --json > submit_output.json"
+            
+      - name: Debug submit output
+        run: |
+          cat submit_output.json
 
       - name: Extract release ID
         run: |
