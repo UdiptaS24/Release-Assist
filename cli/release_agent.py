@@ -38,8 +38,8 @@ def submit(
     rollback_plan: str = typer.Option(..., "--rollback-plan", help="Brief description of the rollback plan to revert this deployment if it fails"),
     requested_start: str = typer.Option(..., "--start", help="Requested deployment start time (e.g. '2026-06-29 11:00' or '29 June 2026 11 AM)"),
     requested_end: str = typer.Option(..., "--end", help="Requested deployment end time (e.g. '2026-06-29 11:00' or '29 June 2026 11 AM)"),
-    notify_contacts: list[str] = typer.Option(..., "--notify", help="Email addresses to notify (can be passes multiple times)")
-
+    notify_contacts: list[str] = typer.Option(..., "--notify", help="Email addresses to notify (can be passes multiple times)"),
+    json_output: bool = typer.Option(False, "--json", help="Output the response in JSON format")
 ):
     console.print(f"[yellow]Submitting release request for [bold]{app_name}[/bold] version [bold]{version}[/bold]...[/yellow]")
     try:
@@ -72,6 +72,10 @@ def submit(
             with httpx.Client(timeout=timeout) as client:
                 response = client.post(API_URL, json=payload, timeout=timeout)
         if response.status_code == 201:
+            if json_output:
+                response_json = response.json()
+                print(json.dumps(response_json))
+                return
             data_summary = response.json()["summary"]
             data = response.json()["data"]
             console.print(f"[bold green]Release request submitted successfully![/bold green]")
@@ -236,8 +240,8 @@ def _render_schedule_result(schedule: dict):
 # Run the full agentic pipeline for an existing release
 @app.command(name="run")
 def run_pipeline_command(
-    release_id: str = typer.Argument(...,
-        help="ID of the release to run the full agentic pipeline for")
+    release_id: str = typer.Argument(..., help="ID of the release to run the full agentic pipeline for"),
+    json_output: bool = typer.Option(False, "--json", help="Output the response in JSON format")
 ):
     console.print(f"[yellow]Running agentic pipeline for "
                   f"release [bold]{release_id}[/bold]...[/yellow]")
@@ -258,6 +262,10 @@ def run_pipeline_command(
 
     body = response.json()
     record = body["data"]
+
+    if json_output:
+        print(json.dumps(record))
+        return
 
     _render_pipeline_log(record)
     _render_quality(record)
