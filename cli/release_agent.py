@@ -74,7 +74,7 @@ def submit(
         if response.status_code == 201:
             if json_output:
                 response_json = response.json()
-                print(json.dumps(response_json))
+                print(json.dumps(response_json["data"]))
                 return
             data_summary = response.json()["summary"]
             data = response.json()["data"]
