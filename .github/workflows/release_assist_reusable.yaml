@@ -179,71 +179,230 @@ jobs:
 
             const status = data.status || "UNKNOWN";
             const pipeline = data.pipeline_status || "UNKNOWN";
-            const gate = data.validation_report?.gate_decision?.outcome || "UNKNOWN";
-            const gateReason = data.validation_report?.gate_decision?.reason || "N/A";
-            const schedule = data.schedule?.status || "N/A";
 
-            // Risk summary
-            const risks = data.validation_report?.risk_report?.assessment?.top_risks || [];
-            let riskSection = " No major risks detected";
+            const validation = data.validation_report || {};
+            const quality = validation.quality_check || {};
+            const vulnerabilities = validation.vulnerability_scan || {};
+            const dependencies = validation.dependencies || {};
+            const risk = validation.risk_report || {};
+            const assessment = risk.assessment || {};
+            const gate = validation.gate_decision || {};
+            const snapshot = data.change_snapshot || {};
+            const scheduleData = data.schedule || {};
+            const pipelineLog = data.pipeline_log || [];
 
-            if (risks.length > 0) {
-              riskSection = risks.map(r =>
-                `- **${r.severity}**: ${r.title}\n  → ${r.suggested_fix}`
-              ).join("\n\n");
+            function statusIcon(value) {
+              const v = String(value || "").toUpperCase();
+
+              if (["SUCCESS", "APPROVED", "SCHEDULED", "COMPLETED", "GO"].includes(v)) {
+                return "✅";
+              }
+
+              if (["WARNING", "NEEDS_REVIEW", "SUGGESTED_ALTERNATE", "SKIPPED"].includes(v)) {
+                return "⚠️";
+              }
+
+              if (["ERROR", "FAILED", "BLOCKED", "HARD_BLOCK", "NO_GO", "STOPPED"].includes(v)) {
+                return "❌";
+              }
+
+              return "ℹ️";
             }
 
-            // Quality summary
-            const qc = data.validation_report?.quality_check || {};
-            const qualityScore = qc.quality_score ?? "N/A";
+            function safe(value, fallback = "N/A") {
+              return value === undefined || value === null || value === "" ? fallback : value;
+            }
 
-            // Vulnerabilities
-            const vulns = data.validation_report?.vulnerability_scan?.severity_counts || {};
-            const vulnSummary = Object.entries(vulns)
-              .map(([k, v]) => `${k}: ${v}`)
-              .join(" | ");
+            function renderPipelineLog(logs) {
+              if (!logs.length) {
+                return "_No pipeline log entries found._";
+              }
+
+              const rows = logs.map(entry => {
+                return `| ${safe(entry.step)} | ${statusIcon(entry.status)} ${safe(entry.status)} | ${safe(entry.message, "-")} | ${safe(entry.reason, "-")} | ${safe(entry.timestamp, "-")} |`;
+              }).join("\n");
+
+              return `
+            | Step | Status | Message | Reason | Timestamp |
+            |---|---|---|---|---|
+            ${rows}
+            `;
+            }
+
+            function renderTopRisks(risks) {
+              if (!risks || risks.length === 0) {
+                return "✅ No major risks detected.";
+              }
+
+              return risks.map((risk, index) => {
+                return `${index + 1}. **[${safe(risk.severity)}] ${safe(risk.title)}**  
+              - ${safe(risk.description, "No description provided.")}  
+              - Suggested fix: ${safe(risk.suggested_fix, "N/A")}`;
+              }).join("\n\n");
+            }
+
+            function renderPositiveSignals(signals) {
+              if (!signals || signals.length === 0) {
+                return "_No positive signals reported._";
+              }
+
+              return signals.map(signal => `- ${signal}`).join("\n");
+            }
+
+            function renderConflicts(conflicts) {
+              if (!conflicts || conflicts.length === 0) {
+                return "✅ No scheduling conflicts detected.";
+              }
+
+              return conflicts.map(conflict => {
+                return `- **${safe(conflict.name, safe(conflict.type))}**: ${safe(conflict.reason)}`;
+              }).join("\n");
+            }
+
+            function renderScheduleAction(scheduleData) {
+              const scheduleStatus = scheduleData.status;
+
+              if (scheduleStatus === "SCHEDULED") {
+                return "✅ Requested deployment window accepted. Proceed with the merge/deployment process at the scheduled window.";
+              }
+
+              if (scheduleStatus === "SUGGESTED_ALTERNATE") {
+                return `⚠️ Requested deployment window conflicts with the deployment calendar.  
+            Please update the PR description with the suggested deployment window and re-run the workflow by re-applying the \`release\` label.`;
+              }
+
+              if (scheduleStatus === "BLOCKED") {
+                return "❌ Deployment scheduling is blocked. Resolve the gate/scheduling issue before re-running.";
+              }
+
+              return "N/A";
+            }
+
+            const vulnCounts = vulnerabilities.severity_counts || {};
+            const vulnSummary = Object.keys(vulnCounts).length
+              ? `CRITICAL: ${vulnCounts.CRITICAL || 0} | HIGH: ${vulnCounts.HIGH || 0} | MEDIUM: ${vulnCounts.MEDIUM || 0} | LOW: ${vulnCounts.LOW || 0}`
+              : safe(vulnerabilities.error || vulnerabilities.message, "N/A");
+
+            const depFlags = dependencies.flags || {};
+            const snapshotSummary = snapshot.summary || {};
+            const envVars = snapshot.new_env_vars_detected || {};
+            const scheduleConflicts = scheduleData.conflicts || [];
 
             const comment = `
             ## Release Assist Report
 
             ### Pipeline Summary
-            - **Pipeline Status**: ${pipeline}
-            - **Final Release Status**: ${status}
+            - **Pipeline Status**: ${statusIcon(pipeline)} ${pipeline}
+            - **Final Release Status**: ${statusIcon(status)} ${status}
+
+            ---
+
+            ### Agentic Pipeline Execution Log
+
+            ${renderPipelineLog(pipelineLog)}
+
+            ---
+
+            ### Quality Check
+            - **Status**: ${statusIcon(quality.status)} ${safe(quality.status)}
+            - **Quality Score**: ${safe(quality.quality_score)}
+            - **Total Issues**: ${safe(quality.total_issues)}
+            - **Reason / Message**: ${safe(quality.message, "-")}
+
+            ---
+
+            ### Vulnerability Scan
+            - **Status**: ${statusIcon(vulnerabilities.status)} ${safe(vulnerabilities.status)}
+            - **Severity Summary**: ${vulnSummary}
+            - **Reason / Error**: ${safe(vulnerabilities.error || vulnerabilities.reason, "-")}
+
+            ---
+
+            ### Dependencies
+            - **Status**: ${statusIcon(dependencies.status)} ${safe(dependencies.status)}
+            - **Upstream Packages**: ${safe(dependencies.upstream?.total, 0)}
+            - **Downstream Services**: ${safe(dependencies.downstream?.total, 0)}
+            - **Errors**: ${safe(depFlags.errors, 0)}
+            - **Warnings**: ${safe(depFlags.warnings, 0)}
+            - **Reason**: ${safe(dependencies.reason, "-")}
+
+            ---
+
+            ### Risk Assessment
+            - **Status**: ${statusIcon(risk.status)} ${safe(risk.status)}
+            - **Source**: ${safe(risk.source)}
+            - **Recommendation**: ${statusIcon(assessment.recommendation)} ${safe(assessment.recommendation)}
+            - **Confidence**: ${safe(assessment.confidence)}
+            - **Summary**: ${safe(assessment.summary)}
+
+            #### Top Risks
+            ${renderTopRisks(assessment.top_risks)}
+
+            #### Positive Signals
+            ${renderPositiveSignals(assessment.positive_signals)}
+
+            ---
+
+            ### Change Snapshot
+            - **Status**: ${statusIcon(snapshot.status)} ${safe(snapshot.status)}
+            - **Current Version**: ${safe(snapshot.current_version)}
+            - **Previous Version**: ${safe(snapshot.previous_version)}
+            - **Files Changed**: ${safe(snapshotSummary.total_files_changed, 0)}
+            - **Added**: ${safe(snapshotSummary.added, 0)}
+            - **Modified**: ${safe(snapshotSummary.modified, 0)}
+            - **Deleted**: ${safe(snapshotSummary.deleted, 0)}
+            - **Renamed**: ${safe(snapshotSummary.renamed, 0)}
+            - **New Env Vars**: ${(envVars.added || []).length ? envVars.added.join(", ") : "None"}
+            - **Removed Env Vars**: ${(envVars.removed || []).length ? envVars.removed.join(", ") : "None"}
+            - **Reason**: ${safe(snapshot.reason, "-")}
 
             ---
 
             ### Gate Decision
-            - **Outcome**: ${gate}
-            - **Reason**: ${gateReason}
+            - **Outcome**: ${statusIcon(gate.outcome)} ${safe(gate.outcome)}
+            - **Reason**: ${safe(gate.reason)}
+            - **Decision Source**: ${safe(gate.decision_source)}
+            - **Severity**: ${safe(gate.severity)}
+            - **Auto Decided**: ${safe(gate.auto_decided)}
+
+            #### Contributing Factors
+            ${
+              gate.contributing_factors && gate.contributing_factors.length
+                ? gate.contributing_factors.map(factor => `- ${factor}`).join("\n")
+                : "_No contributing factors reported._"
+            }
 
             ---
 
             ### Deployment Scheduling
-            - **Status**: ${schedule}
+            - **Status**: ${statusIcon(scheduleData.status)} ${safe(scheduleData.status)}
+            - **Requested Window**: ${safe(scheduleData.requested_start)} → ${safe(scheduleData.requested_end)}
+            - **Scheduled Window**: ${safe(scheduleData.scheduled_start)} → ${safe(scheduleData.scheduled_end)}
+            - **Reason**: ${safe(scheduleData.reason)}
+
+            #### Scheduling Conflicts
+            ${renderConflicts(scheduleConflicts)}
+
+            #### Scheduling Action
+            ${renderScheduleAction(scheduleData)}
 
             ---
 
-            ### Validation Summary
-            - **Quality Score**: ${qualityScore}
-            - **Vulnerabilities**: ${vulnSummary || "N/A"}
+            ### Final Status
+            **${statusIcon(status)} ${status}**
 
             ---
 
-            ### Top Risks
-            ${riskSection}
-
-            ---
-
-            ### Raw Output (for debugging)
+            ### Raw Output for Debugging
             <details>
-            <summary>Expand</summary>
+            <summary>Expand full JSON</summary>
 
             \`\`\`json
             ${JSON.stringify(data, null, 2)}
             \`\`\`
 
             </details>
-                  `;
+            `;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
