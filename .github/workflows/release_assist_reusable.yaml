@@ -2,6 +2,9 @@ name: Release Assist Pipeline
 
 on:
   workflow_call:
+    secrets:
+      GEMINI_API_KEY:
+        required: true
 
 jobs:
   run-pipeline:
@@ -125,6 +128,22 @@ jobs:
               repo: context.repo.repo,
               body: "**Release Assist Error:** Invalid PR description format. Please follow the required YAML schema."
             });
+      
+      - name: Debug LLM environment
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "GEMINI_API_KEY is missing"
+            exit 1
+          else
+            echo "GEMINI_API_KEY is present"
+          fi
+
+          if [ -z "$GEMINI_MODEL" ]; then
+            echo "GEMINI_MODEL is missing"
+            exit 1
+          else
+            echo "GEMINI_MODEL=$GEMINI_MODEL"
+          fi
 
       - name: Start Release Assist API
         run: |
@@ -307,14 +326,12 @@ jobs:
             - **Status**: ${statusIcon(quality.status)} ${safe(quality.status)}
             - **Quality Score**: ${safe(quality.quality_score)}
             - **Total Issues**: ${safe(quality.total_issues)}
-            - **Reason / Message**: ${safe(quality.message, "-")}
 
             ---
 
             ### Vulnerability Scan
             - **Status**: ${statusIcon(vulnerabilities.status)} ${safe(vulnerabilities.status)}
             - **Severity Summary**: ${vulnSummary}
-            - **Reason / Error**: ${safe(vulnerabilities.error || vulnerabilities.reason, "-")}
 
             ---
 
@@ -324,7 +341,6 @@ jobs:
             - **Downstream Services**: ${safe(dependencies.downstream?.total, 0)}
             - **Errors**: ${safe(depFlags.errors, 0)}
             - **Warnings**: ${safe(depFlags.warnings, 0)}
-            - **Reason**: ${safe(dependencies.reason, "-")}
 
             ---
 
@@ -354,7 +370,6 @@ jobs:
             - **Renamed**: ${safe(snapshotSummary.renamed, 0)}
             - **New Env Vars**: ${(envVars.added || []).length ? envVars.added.join(", ") : "None"}
             - **Removed Env Vars**: ${(envVars.removed || []).length ? envVars.removed.join(", ") : "None"}
-            - **Reason**: ${safe(snapshot.reason, "-")}
 
             ---
 

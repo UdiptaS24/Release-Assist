@@ -387,8 +387,8 @@ def rule_based(validation_report: dict) -> dict:
     vs = validation_report.get("vulnerability_scan", {})
     deps = validation_report.get("dependencies", {})
 
-    critical = vs.get("severity_counts", {}).get("CRITICAL", [])
-    high = vs.get("severity_counts", {}).get("HIGH", [])
+    critical = vs.get("vulnerabilities", {}).get("CRITICAL", [])
+    high = vs.get("vulnerabilities", {}).get("HIGH", [])
     flags = deps.get("flags", {})
     errors = flags.get("errors", 0)
     warnings = flags.get("warnings", 0)
