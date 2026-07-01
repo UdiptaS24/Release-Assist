@@ -5,6 +5,10 @@ on:
 
 jobs:
   run-pipeline:
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     env:
       RELEASE_API_URL: http://127.0.0.1:8000/releases
       INTERNAL_PATTERNS: -service,-api,-worker,-gateway,-client
@@ -29,6 +33,12 @@ jobs:
         
       - run: pip install -r release-assist/requirements.txt
       - run: pip install pyyaml jq
+
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.2
+
+      - name: Verify Trivy
+        run: trivy --version
 
       - name: Get PR description
         run: |
@@ -144,7 +154,7 @@ jobs:
             done
 
             eval "$CMD --json > submit_output.json"
-            
+
       - name: Debug submit output
         run: |
           cat submit_output.json
